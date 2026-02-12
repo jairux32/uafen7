@@ -1,0 +1,59 @@
+
+    /**
+     * Calculate preliminary risk score
+     * POST /api/operaciones/calcular-riesgo
+     */
+    async calcularRiesgoPreliminar(req: Request, res: Response) {
+        try {
+            const { tipoActo, valorDeclarado, montoEfectivo, vendedor, comprador } = req.body;
+
+            if (!tipoActo || !valorDeclarado) {
+                return res.status(400).json({
+                    error: 'tipoActo y valorDeclarado son requeridos',
+                });
+            }
+
+            // Build operation input with available data
+            const operacionInput = {
+                tipoActo,
+                valorDeclarado,
+                montoEfectivo,
+                vendedor: vendedor || {
+                    tipoPersona: 'NATURAL' as any,
+                    esPEP: false,
+                },
+                comprador: comprador || {
+                    tipoPersona: 'NATURAL' as any,
+                    esPEP: false,
+                },
+            };
+
+            // Calculate risk
+            const score = await riskAssessmentService.calcularScoreRiesgo(operacionInput);
+            const nivel = riskAssessmentService.determinarNivelRiesgo(score);
+            const factores = await riskAssessmentService.identificarFactoresRiesgo(operacionInput);
+            const tipoDD = await riskAssessmentService.evaluarTipoDD(operacionInput);
+
+            // Format factors for frontend
+            const factoresFormateados = factores.map((f) => ({
+                nombre: f.descripcion,
+                puntos: f.peso,
+            }));
+
+            return res.json({
+                score,
+                nivel,
+                factores: factoresFormateados,
+                tipoDD,
+            });
+        } catch (error: any) {
+            logger.error('Calculate risk error', { error });
+            return res.status(500).json({
+                error: 'Error al calcular riesgo',
+            });
+        }
+    }
+}
+
+export const operacionController = new OperacionController();
+

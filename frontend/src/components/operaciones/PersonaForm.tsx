@@ -1,0 +1,256 @@
+import { Search } from 'lucide-react';
+import { useState } from 'react';
+import { debidaDiligenciaService } from '../../services/debidaDiligencia.service';
+
+interface PersonaFormProps {
+    title: string;
+    icon: React.ReactNode;
+    onPersonaChange?: (data: any) => void;
+}
+
+export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFormProps) {
+    const [tipoPersona, setTipoPersona] = useState<'NATURAL' | 'JURIDICA'>('NATURAL');
+    const [formData, setFormData] = useState({
+        id: '',
+        identificacion: '',
+        nombres: '',
+        apellidos: '',
+        razonSocial: '',
+        nacionalidad: 'Ecuatoriana',
+        paisConstitucion: 'Ecuador',
+        ingresosMensuales: '',
+        origenFondos: '',
+        esPEP: false,
+        actividadEconomica: '',
+    });
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchMessage, setSearchMessage] = useState('');
+
+    const handleSearch = async () => {
+        if (!formData.identificacion || formData.identificacion.length < 10) {
+            setSearchMessage('⚠️ Ingrese una identificación válida (mínimo 10 dígitos)');
+            return;
+        }
+
+        setIsSearching(true);
+        setSearchMessage('🔍 Buscando...');
+
+        try {
+            const response = await debidaDiligenciaService.buscarPorIdentificacion(formData.identificacion);
+
+            if (response.encontrado && response.persona) {
+                // Populate form with found data
+                const persona = response.persona;
+                const newData = {
+                    id: persona.id,
+                    identificacion: persona.identificacion,
+                    nombres: persona.nombres || '',
+                    apellidos: persona.apellidos || '',
+                    razonSocial: persona.razonSocial || '',
+                    nacionalidad: persona.nacionalidad || 'Ecuatoriana',
+                    paisConstitucion: persona.paisConstitucion || 'Ecuador',
+                    ingresosMensuales: persona.ingresosMensuales?.toString() || '',
+                    origenFondos: persona.origenFondos || '',
+                    esPEP: persona.esPEP,
+                    actividadEconomica: persona.actividadEconomica || '',
+                };
+                setFormData(newData);
+                setTipoPersona(persona.tipoPersona);
+                setSearchMessage('✅ Persona encontrada en el sistema');
+                onPersonaChange?.(newData);
+            } else {
+                setSearchMessage('ℹ️ Persona no encontrada. Complete los datos para crear un nuevo registro.');
+            }
+        } catch (error) {
+            console.error('Error searching person:', error);
+            setSearchMessage('❌ Error al buscar. Intente nuevamente.');
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleChange = (field: string, value: any) => {
+        const newData = { ...formData, [field]: value };
+        setFormData(newData);
+        onPersonaChange?.(newData);
+    };
+
+    const handleTipoPersonaChange = (tipo: 'NATURAL' | 'JURIDICA') => {
+        setTipoPersona(tipo);
+        // Clear type-specific fields
+        if (tipo === 'NATURAL') {
+            handleChange('razonSocial', '');
+            handleChange('paisConstitucion', '');
+        } else {
+            handleChange('nombres', '');
+            handleChange('apellidos', '');
+        }
+    };
+
+    return (
+        <div className="card">
+            <div className="flex items-center gap-2 mb-6">
+                {icon}
+                <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            </div>
+
+            {/* Tipo de Persona */}
+            <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                    TIPO DE PERSONA
+                </label>
+                <div className="flex gap-4">
+                    <label className="flex items-center">
+                        <input
+                            type="radio"
+                            name={`tipo-${title}`}
+                            value="NATURAL"
+                            checked={tipoPersona === 'NATURAL'}
+                            onChange={() => handleTipoPersonaChange('NATURAL')}
+                            className="mr-2"
+                        />
+                        <span className="text-sm">Natural</span>
+                    </label>
+                    <label className="flex items-center">
+                        <input
+                            type="radio"
+                            name={`tipo-${title}`}
+                            value="JURIDICA"
+                            checked={tipoPersona === 'JURIDICA'}
+                            onChange={() => handleTipoPersonaChange('JURIDICA')}
+                            className="mr-2"
+                        />
+                        <span className="text-sm">Jurídica</span>
+                    </label>
+                </div>
+            </div>
+
+            {/* Identificación con búsqueda */}
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                    IDENTIFICACIÓN (ID)
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        placeholder="Ej. 1712345678"
+                        value={formData.identificacion}
+                        onChange={(e) => handleChange('identificacion', e.target.value)}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    />
+                    <button
+                        onClick={handleSearch}
+                        disabled={isSearching}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Search className="w-5 h-5" />
+                    </button>
+                </div>
+                {searchMessage && (
+                    <p className="text-sm mt-2 text-gray-600">{searchMessage}</p>
+                )}
+            </div>
+
+            {/* Nombres / Razón Social */}
+            {tipoPersona === 'NATURAL' ? (
+                <div className="grid grid-cols-1 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            NOMBRES / RAZÓN SOCIAL
+                        </label>
+                        <input
+                            type="text"
+                            value={`${formData.nombres} ${formData.apellidos}`.trim()}
+                            onChange={(e) => {
+                                const parts = e.target.value.split(' ');
+                                handleChange('nombres', parts[0] || '');
+                                handleChange('apellidos', parts.slice(1).join(' '));
+                            }}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                </div>
+            ) : (
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        NOMBRES / RAZÓN SOCIAL
+                    </label>
+                    <input
+                        type="text"
+                        value={formData.razonSocial}
+                        onChange={(e) => handleChange('razonSocial', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    />
+                </div>
+            )}
+
+            {/* Nacionalidad e Ingresos */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {tipoPersona === 'NATURAL' ? 'NACIONALIDAD' : 'PAÍS DE CONSTITUCIÓN'}
+                    </label>
+                    <select
+                        value={tipoPersona === 'NATURAL' ? formData.nacionalidad : formData.paisConstitucion}
+                        onChange={(e) => handleChange(tipoPersona === 'NATURAL' ? 'nacionalidad' : 'paisConstitucion', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    >
+                        <option value="Ecuador">Ecuador</option>
+                        <option value="Colombia">Colombia</option>
+                        <option value="Perú">Perú</option>
+                        <option value="Venezuela">Venezuela</option>
+                        <option value="Otra">Otra</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        INGRESOS MENSUALES
+                    </label>
+                    <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                        <input
+                            type="number"
+                            value={formData.ingresosMensuales}
+                            onChange={(e) => handleChange('ingresosMensuales', e.target.value)}
+                            className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Origen de Fondos */}
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ORIGEN DE FONDOS
+                </label>
+                <textarea
+                    value={formData.origenFondos}
+                    onChange={(e) => handleChange('origenFondos', e.target.value)}
+                    placeholder="Describa la procedencia de los recursos..."
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+            </div>
+
+            {/* PEP Checkbox */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={formData.esPEP}
+                        onChange={(e) => handleChange('esPEP', e.target.checked)}
+                        className="mt-1"
+                    />
+                    <div>
+                        <span className="font-semibold text-purple-900">
+                            Persona Expuesta Políticamente (PEP)
+                        </span>
+                        <p className="text-sm text-purple-700 mt-1">
+                            ¿Ejerce o ha ejercido cargos públicos de alto nivel?
+                        </p>
+                    </div>
+                </label>
+            </div>
+        </div>
+    );
+}

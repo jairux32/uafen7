@@ -1,0 +1,469 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum TamanoNotaria {
+  PEQUENA  // < 500 actos/año
+  MEDIANA  // 500-2000 actos/año
+  GRANDE   // > 2000 actos/año
+}
+
+enum RolUsuario {
+  MATRIZADOR           // 1ª línea - Ingreso de datos
+  OFICIAL_CUMPLIMIENTO // 2ª línea - Revisión y reportes
+  NOTARIO              // Máxima autoridad - Aprobación final
+  ADMIN_SISTEMA        // Administrador técnico
+}
+
+enum TipoDD {
+  SIMPLIFICADA  // Riesgo bajo
+  ESTANDAR      // Riesgo medio
+  REFORZADA     // Riesgo alto (empresas extranjeras, transacciones complejas)
+  INTENSIFICADA // Riesgo muy alto (PEPs, países alto riesgo)
+}
+
+enum TipoPersona {
+  NATURAL
+  JURIDICA
+}
+
+enum NivelRiesgo {
+  BAJO
+  MEDIO
+  ALTO
+  MUY_ALTO
+}
+
+enum TipoPEP {
+  NACIONAL                   // PEP ecuatoriano
+  EXTRANJERO                 // PEP de otro país
+  ORGANIZACION_INTERNACIONAL // ONU, OEA, etc.
+  FAMILIAR                   // Familiar directo de PEP
+  COLABORADOR_CERCANO        // Socio comercial conocido de PEP
+}
+
+enum TipoActo {
+  COMPRAVENTA
+  HIPOTECA
+  DONACION
+  CONSTITUCION_SOCIEDAD
+  LIQUIDACION_SOCIEDAD_CONYUGAL
+  PODER
+  TESTAMENTO
+  CANCELACION_HIPOTECA
+  OTRO
+}
+
+enum FormaPago {
+  EFECTIVO
+  TRANSFERENCIA
+  CHEQUE
+  MIXTO
+}
+
+enum EstadoOperacion {
+  BORRADOR
+  EN_REVISION
+  APROBADA
+  REPORTADA // Reportada a UAFE
+  ARCHIVADA
+}
+
+enum TipoAlerta {
+  EFECTIVO_EXCEDE_LIMITE    // >= $10,000
+  SUBVALORACION_BIEN        // Valor declarado muy bajo
+  PERFIL_INCOMPATIBLE       // Cliente no coincide con perfil económico
+  PREMURA_EXCESIVA          // Urgencia inusual
+  PEP_DETECTADO             // Transacción con PEP
+  PAIS_ALTO_RIESGO          // País en lista GAFI
+  LISTA_RESTRICTIVA         // Match con OFAC, ONU, etc.
+  OPERACION_INUSUAL         // Patrón atípico
+  BENEFICIARIO_FINAL_OCULTO // Dificultad para identificar BF
+  FRACCIONAMIENTO           // Posible estructuración
+}
+
+enum SeveridadAlerta {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum EstadoAlerta {
+  PENDIENTE
+  EN_ANALISIS
+  FALSO_POSITIVO
+  CONFIRMADA
+  REPORTADA
+}
+
+enum TipoReporte {
+  RESU // Reporte Estructurado de Sujetos Obligados (mensual, 15 días post-cierre)
+  ROS  // Reporte de Operaciones Sospechosas (4 días desde conocimiento)
+  RIA  // Reporte de Información Adicional (5 días hábiles desde requerimiento UAFE)
+}
+
+enum EstadoReporte {
+  BORRADOR
+  GENERADO
+  ENVIADO
+  CONFIRMADO
+  ERROR
+}
+
+enum TipoDocumento {
+  CEDULA
+  RUC
+  PASAPORTE
+  NOMBRAMIENTO
+  ESTATUTOS
+  FORMULARIO_KYC
+  COMPROBANTE_INGRESOS
+  DECLARACION_ORIGEN_FONDOS
+  REPORTE_ROS
+  EVIDENCIA_ALERTA
+  OTRO
+}
+
+enum NivelAcceso {
+  PUBLICO      // Accesible por todos los usuarios
+  RESTRINGIDO  // Solo Oficial de Cumplimiento y Notario
+  CONFIDENCIAL // Solo Oficial de Cumplimiento
+}
+
+enum FuenteLista {
+  UAFE
+  OFAC
+  ONU
+  PRIVADOS_LIBERTAD
+  INTERPOL
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model Notaria {
+  id            String        @id @default(uuid())
+  nombre        String
+  ruc           String        @unique
+  direccion     String
+  telefono      String
+  email         String
+  tamano        TamanoNotaria
+  numeroNotaria String
+  canton        String
+  provincia     String
+
+  // Relaciones
+  usuarios   Usuario[]
+  operaciones Operacion[]
+  reportes   Reporte[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ruc])
+}
+
+model Usuario {
+  id           String     @id @default(uuid())
+  nombres      String
+  apellidos    String
+  cedula       String     @unique
+  email        String     @unique
+  password     String // bcrypt hash
+  rol          RolUsuario
+  activo       Boolean    @default(true)
+  ultimoAcceso DateTime?
+
+  // Relaciones
+  notariaId String
+  notaria   Notaria @relation(fields: [notariaId], references: [id])
+
+  operacionesCreadas   Operacion[] @relation("OperacionCreador")
+  operacionesRevisadas Operacion[] @relation("OperacionRevisor")
+  alertasGestionadas   Alerta[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([cedula])
+  @@index([notariaId])
+}
+
+model DebiDaDiligencia {
+  id                 String        @id @default(uuid())
+  tipo               TipoDD
+  tipoPersona        TipoPersona
+  
+  // Identificación única (cédula o RUC)
+  identificacion     String        @unique
+  
+  // Persona Natural
+  nombres            String?
+  apellidos          String?
+  cedula             String?
+  ruc                String?
+  fechaNacimiento    DateTime?
+  nacionalidad       String?
+  
+  // Persona Jurídica
+  razonSocial        String?
+  rucEmpresa         String?
+  paisConstitucion   String?
+  actividadEconomica String?
+  
+  // Datos de contacto (ahora opcionales para flexibilidad)
+  direccion          String?
+  telefono           String?
+  email              String?
+  
+  // Información financiera
+  ingresosMensuales  Decimal?
+  origenFondos       String?
+  profesion          String?
+  
+  // PEP
+  esPEP              Boolean @default(false)
+  pepDetalle         PEP?
+  
+  // Beneficiarios finales (si es persona jurídica)
+  beneficiarios      BeneficiarioFinal[]
+  
+  // Documentos adjuntos
+  documentos         Documento[]
+  
+  // Evaluación de riesgo
+  nivelRiesgo        NivelRiesgo?
+  scoreRiesgo        Int?
+  
+  // Vigencia
+  fechaVerificacion  DateTime @default(now())
+  fechaExpiracion    DateTime
+  vigente            Boolean  @default(true)
+  
+  // Relaciones con operaciones
+  operacionesVendedor  Operacion[] @relation("Vendedor")
+  operacionesComprador Operacion[] @relation("Comprador")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cedula])
+  @@index([rucEmpresa])
+  @@index([vigente])
+}
+
+model BeneficiarioFinal {
+  id                 String   @id @default(uuid())
+  nombres            String
+  apellidos          String
+  cedula             String
+  nacionalidad       String
+  porcentajeCapital  Decimal // >= 10%
+  tipoParticipacion  String  // Directa, Indirecta, Control efectivo
+  esPEP              Boolean @default(false)
+  pepDetalle         PEP?
+
+  // Relación
+  ddId               String
+  debiDaDiligencia   DebiDaDiligencia @relation(fields: [ddId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cedula])
+  @@index([ddId])
+}
+
+model PEP {
+  id              String   @id @default(uuid())
+  tipoPEP         TipoPEP
+  cargoActual     String?
+  cargoAnterior   String?
+  institucion     String
+  fechaInicioCargo DateTime?
+  fechaFinCargo   DateTime?
+  vigente         Boolean  @default(true)
+  relacionConPEP  String? // Ej: "Cónyuge de...", "Socio de..."
+
+  // Relación con DD o Beneficiario (uno u otro, no ambos)
+  ddId            String?            @unique
+  debiDaDiligencia DebiDaDiligencia? @relation(fields: [ddId], references: [id], onDelete: Cascade)
+
+  beneficiarioId  String?           @unique
+  beneficiario    BeneficiarioFinal? @relation(fields: [beneficiarioId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vigente])
+}
+
+model Operacion {
+  id              String          @id @default(uuid())
+  tipoActo        TipoActo
+  numeroEscritura String
+  fechaEscritura  DateTime
+  descripcionBien String
+  valorDeclarado  Decimal
+  formaPago       FormaPago
+  montoEfectivo   Decimal?
+  nivelRiesgo     NivelRiesgo
+  factoresRiesgo  Json // Array de factores detectados
+  estado          EstadoOperacion
+
+  // Partes
+  vendedorId  String
+  vendedor    DebiDaDiligencia @relation("Vendedor", fields: [vendedorId], references: [id])
+  compradorId String
+  comprador   DebiDaDiligencia @relation("Comprador", fields: [compradorId], references: [id])
+
+  // Notaría y usuarios
+  notariaId String
+  notaria   Notaria @relation(fields: [notariaId], references: [id])
+
+  creadorId String
+  creador   Usuario @relation("OperacionCreador", fields: [creadorId], references: [id])
+
+  revisorId String?
+  revisor   Usuario? @relation("OperacionRevisor", fields: [revisorId], references: [id])
+
+  // Alertas y documentos
+  alertas                Alerta[]
+  documentosCumplimiento Documento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([notariaId])
+  @@index([estado])
+  @@index([fechaEscritura])
+  @@index([nivelRiesgo])
+}
+
+model Alerta {
+  id                String         @id @default(uuid())
+  tipo              TipoAlerta
+  severidad         SeveridadAlerta
+  titulo            String
+  descripcion       String
+  detalles          Json // Información adicional estructurada
+  estado            EstadoAlerta
+  fechaGestion      DateTime?
+  comentarioGestion String?
+
+  // Operación relacionada
+  operacionId String
+  operacion   Operacion @relation(fields: [operacionId], references: [id], onDelete: Cascade)
+
+  // Gestión
+  gestionadaPorId String?
+  gestionadaPor   Usuario? @relation(fields: [gestionadaPorId], references: [id])
+
+  // Reporte asociado
+  reporteId String?
+  reporte   Reporte? @relation(fields: [reporteId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([operacionId])
+  @@index([estado])
+  @@index([severidad])
+  @@index([tipo])
+}
+
+model Reporte {
+  id                 String        @id @default(uuid())
+  tipo               TipoReporte
+  mes                Int?
+  anio               Int?
+  datosReporte       Json // Estructura según formato UAFE
+  archivoPath        String?
+  archivoHash        String? // SHA-256 para integridad
+  estado             EstadoReporte
+  fechaGeneracion    DateTime      @default(now())
+  fechaEnvio         DateTime?
+  numeroConfirmacion String?
+  fechaConfirmacion  DateTime?
+
+  // Notaría
+  notariaId String
+  notaria   Notaria @relation(fields: [notariaId], references: [id])
+
+  // Alertas incluidas
+  alertas Alerta[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([notariaId])
+  @@index([tipo])
+  @@index([estado])
+  @@index([mes, anio])
+}
+
+model Documento {
+  id          String         @id @default(uuid())
+  tipo        TipoDocumento
+  nombre      String
+  descripcion String?
+  path        String // Ruta cifrada
+  hash        String // SHA-256
+  tamano      Int // bytes
+  mimeType    String
+  cifrado     Boolean       @default(true)
+  nivelAcceso NivelAcceso
+
+  // Relaciones (uno u otro, no ambos)
+  ddId        String?
+  debiDaDiligencia DebiDaDiligencia? @relation(fields: [ddId], references: [id], onDelete: Cascade)
+
+  operacionId String?
+  operacion   Operacion? @relation(fields: [operacionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ddId])
+  @@index([operacionId])
+  @@index([tipo])
+}
+
+model ListaRestrictiva {
+  id                   String      @id @default(uuid())
+  fuente               FuenteLista
+  nombre               String
+  alias                String[] // Array de alias
+  tipoDocumento        String?
+  numeroDocumento      String?
+  nacionalidad         String?
+  categoria            String // Terrorismo, Narcotráfico, Corrupción, etc.
+  fechaIncorporacion   DateTime
+  fechaActualizacion   DateTime
+  vigente              Boolean     @default(true)
+  ultimaSincronizacion DateTime    @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([nombre])
+  @@index([numeroDocumento])
+  @@index([fuente])
+  @@index([vigente])
+}

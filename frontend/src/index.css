@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-riesgo-bajo {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-riesgo-medio {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-riesgo-alto {
+    @apply bg-orange-100 text-orange-800;
+  }
+
+  .badge-riesgo-muy-alto {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .badge-alert-critica {
+    @apply bg-red-100 text-red-800 border border-red-200;
+  }
+
+  .badge-alert-alta {
+    @apply bg-orange-100 text-orange-800 border border-orange-200;
+  }
+
+  .badge-alert-media {
+    @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+  }
+
+  .badge-alert-baja {
+    @apply bg-blue-100 text-blue-800 border border-blue-200;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow p-6;
+  }
+}
