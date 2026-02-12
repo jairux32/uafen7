@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, User, ShoppingCart } from 'lucide-react';
+import { AlertTriangle, User, ShoppingCart, FileText } from 'lucide-react';
 import StepIndicator from '../../components/operaciones/StepIndicator';
 import RiskScoreCircle from '../../components/operaciones/RiskScoreCircle';
 import PersonaForm from '../../components/operaciones/PersonaForm';
@@ -209,9 +209,9 @@ export default function NuevaOperacionPage() {
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Evaluación de Riesgo</h3>
                                 <div className={`px - 4 py - 2 rounded - full text - sm font - semibold ${formData.riesgo?.nivel === 'BAJO' ? 'bg-green-100 text-green-800' :
-                                        formData.riesgo?.nivel === 'MEDIO' ? 'bg-yellow-100 text-yellow-800' :
-                                            formData.riesgo?.nivel === 'ALTO' ? 'bg-orange-100 text-orange-800' :
-                                                'bg-red-100 text-red-800'
+                                    formData.riesgo?.nivel === 'MEDIO' ? 'bg-yellow-100 text-yellow-800' :
+                                        formData.riesgo?.nivel === 'ALTO' ? 'bg-orange-100 text-orange-800' :
+                                            'bg-red-100 text-red-800'
                                     } `}>
                                     {formData.riesgo?.nivel || 'NO CALCULADO'}
                                 </div>
