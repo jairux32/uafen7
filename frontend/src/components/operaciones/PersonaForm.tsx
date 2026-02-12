@@ -153,19 +153,28 @@ export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFor
 
             {/* Nombres / Razón Social */}
             {tipoPersona === 'NATURAL' ? (
-                <div className="grid grid-cols-1 gap-4 mb-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            NOMBRES / RAZÓN SOCIAL
+                            NOMBRES
                         </label>
                         <input
                             type="text"
-                            value={`${formData.nombres} ${formData.apellidos}`.trim()}
-                            onChange={(e) => {
-                                const parts = e.target.value.split(' ');
-                                handleChange('nombres', parts[0] || '');
-                                handleChange('apellidos', parts.slice(1).join(' '));
-                            }}
+                            value={formData.nombres}
+                            onChange={(e) => handleChange('nombres', e.target.value)}
+                            placeholder="Ej: Juan Carlos"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            APELLIDOS
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.apellidos}
+                            onChange={(e) => handleChange('apellidos', e.target.value)}
+                            placeholder="Ej: Pérez González"
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                         />
                     </div>
