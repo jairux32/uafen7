@@ -73,6 +73,14 @@ enum FormaPago {
   MIXTO
 }
 
+enum EstadoCivil {
+  SOLTERO
+  CASADO
+  DIVORCIADO
+  VIUDO
+  UNION_LIBRE
+}
+
 enum EstadoOperacion {
   BORRADOR
   EN_REVISION
@@ -240,6 +248,11 @@ model DebiDaDiligencia {
   // PEP
   esPEP              Boolean @default(false)
   pepDetalle         PEP?
+  
+  // Estado Civil y Cónyuge
+  estadoCivil        EstadoCivil @default(SOLTERO)
+  nombreConyuge      String?
+  identificacionConyuge String?
   
   // Beneficiarios finales (si es persona jurídica)
   beneficiarios      BeneficiarioFinal[]

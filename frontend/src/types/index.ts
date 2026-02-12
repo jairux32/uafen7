@@ -49,6 +49,9 @@ export interface DebiDaDiligencia {
     telefono: string;
     email?: string;
     esPEP: boolean;
+    estadoCivil?: 'SOLTERO' | 'CASADO' | 'DIVORCIADO' | 'VIUDO' | 'UNION_LIBRE';
+    nombreConyuge?: string;
+    identificacionConyuge?: string;
 }
 
 export type SeveridadAlerta = 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA';

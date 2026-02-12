@@ -22,6 +22,9 @@ export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFor
         origenFondos: '',
         esPEP: false,
         actividadEconomica: '',
+        estadoCivil: 'SOLTERO',
+        nombreConyuge: '',
+        identificacionConyuge: '',
     });
     const [isSearching, setIsSearching] = useState(false);
     const [searchMessage, setSearchMessage] = useState('');
@@ -53,6 +56,9 @@ export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFor
                     origenFondos: persona.origenFondos || '',
                     esPEP: persona.esPEP,
                     actividadEconomica: persona.actividadEconomica || '',
+                    estadoCivil: persona.estadoCivil || 'SOLTERO',
+                    nombreConyuge: persona.nombreConyuge || '',
+                    identificacionConyuge: persona.identificacionConyuge || '',
                 };
                 setFormData(newData);
                 setTipoPersona(persona.tipoPersona);
@@ -124,6 +130,59 @@ export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFor
                     </label>
                 </div>
             </div>
+
+            {/* Estado Civil - Solo para Persona Natural */}
+            {tipoPersona === 'NATURAL' && (
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ESTADO CIVIL
+                    </label>
+                    <select
+                        value={formData.estadoCivil}
+                        onChange={(e) => handleChange('estadoCivil', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    >
+                        <option value="SOLTERO">Soltero/a</option>
+                        <option value="CASADO">Casado/a</option>
+                        <option value="DIVORCIADO">Divorciado/a</option>
+                        <option value="VIUDO">Viudo/a</option>
+                        <option value="UNION_LIBRE">Unión Libre</option>
+                    </select>
+                </div>
+            )}
+
+            {/* Datos del Cónyuge - Solo si está casado */}
+            {tipoPersona === 'NATURAL' && formData.estadoCivil === 'CASADO' && (
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-3">DATOS DEL CÓNYUGE</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                NOMBRE COMPLETO DEL CÓNYUGE
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.nombreConyuge}
+                                onChange={(e) => handleChange('nombreConyuge', e.target.value)}
+                                placeholder="Ej: María Fernanda López"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                IDENTIFICACIÓN DEL CÓNYUGE
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.identificacionConyuge}
+                                onChange={(e) => handleChange('identificacionConyuge', e.target.value)}
+                                placeholder="Ej: 0987654321"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Identificación con búsqueda */}
             <div className="mb-4">
