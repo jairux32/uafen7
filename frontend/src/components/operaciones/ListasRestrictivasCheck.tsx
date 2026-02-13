@@ -1,134 +1,185 @@
 import { useState } from 'react';
 import { Check, X, Loader2, Shield } from 'lucide-react';
 import { listasRestrictivasService } from '../../services/listasRestrictivas.service';
-
-interface ListResult {
-    lista: 'UAFE' | 'OFAC' | 'ONU';
-    estado: 'pendiente' | 'verificando' | 'limpio' | 'coincidencia';
-    mensaje?: string;
-}
+import { debidaDiligenciaService } from '../../services/debidaDiligencia.service';
+import type { DebiDaDiligencia, ListasRestrictivasResult } from '../../types';
 
 interface ListasRestrictivasCheckProps {
-    vendedorId?: string;
-    compradorId?: string;
+    vendedor: Partial<DebiDaDiligencia>;
+    comprador: Partial<DebiDaDiligencia>;
     onVerified?: (results: any) => void;
+    onPersonUpdate?: (tipo: 'vendedor' | 'comprador', data: DebiDaDiligencia) => void;
 }
 
 export default function ListasRestrictivasCheck({
-    vendedorId,
-    compradorId,
+    vendedor,
+    comprador,
     onVerified,
+    onPersonUpdate,
 }: ListasRestrictivasCheckProps) {
     const [isVerifying, setIsVerifying] = useState(false);
-    const [results, setResults] = useState<ListResult[]>([
+    const [results, setResults] = useState<ListasRestrictivasResult[]>([
         { lista: 'UAFE', estado: 'pendiente' },
         { lista: 'OFAC', estado: 'pendiente' },
         { lista: 'ONU', estado: 'pendiente' },
     ]);
-    const [errorMessage, setErrorMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    const validateId = (id: string, tipo: string) => {
+        if (!id) return `Falta identificación del ${tipo}`;
+        if (id.length !== 10 && id.length !== 13) return `Identificación del ${tipo} inválida (debe tener 10 o 13 dígitos)`;
+        return null;
+    };
 
     const handleVerify = async () => {
-        if (!vendedorId || !compradorId) {
-            setErrorMessage('Debe completar los datos del vendedor y comprador primero');
+        setIsVerifying(true);
+        setResults(results.map(r => ({ ...r, estado: 'verificando', mensaje: undefined })));
+
+        // Validate IDs format first
+        const vError = validateId(vendedor?.identificacion || '', 'Vendedor');
+        if (vError) {
+            setErrorMessage(vError);
+            setIsVerifying(false);
             return;
         }
 
-        setIsVerifying(true);
-        setErrorMessage('');
+        const cError = validateId(comprador?.identificacion || '', 'Comprador');
+        if (cError) {
+            setErrorMessage(cError);
+            setIsVerifying(false);
+            return;
+        }
 
-        // Set all to verifying state
-        setResults([
-            { lista: 'UAFE', estado: 'verificando' },
-            { lista: 'OFAC', estado: 'verificando' },
-            { lista: 'ONU', estado: 'verificando' },
-        ]);
+        setErrorMessage(null);
 
         try {
-            const response = await listasRestrictivasService.verificar(vendedorId, compradorId);
+            // Check if persons exist, if not create them (auto-save for new persons)
+            let vendedorId = vendedor?.id;
+            if (!vendedorId && vendedor?.identificacion) {
+                // Auto-create vendedor if missing ID
+                try {
+                    // Start with search to be safe
+                    const searchV = await debidaDiligenciaService.buscarPorIdentificacion(vendedor.identificacion);
+                    if (searchV.encontrado && searchV.persona) {
+                        vendedorId = searchV.persona.id;
+                    } else {
+                        // Create new
+                        const newVendedor = await debidaDiligenciaService.crear({
+                            ...vendedor,
+                            tipoPersona: vendedor.tipoPersona || 'NATURAL', // Ensure type
+                            identificacion: vendedor.identificacion
+                        } as any);
+                        vendedorId = newVendedor.id;
+                        onPersonUpdate?.('vendedor', newVendedor);
+                    }
+                } catch (e) {
+                    console.error('Error auto-saving vendedor:', e);
+                    setErrorMessage('Error al guardar datos del vendedor. Verifique la información.');
+                    setIsVerifying(false);
+                    return;
+                }
+            }
 
-            // Update results based on API response
-            const vendedorResults = response.vendedor.resultados;
-            const compradorResults = response.comprador.resultados;
+            let compradorId = comprador?.id;
+            if (!compradorId && comprador?.identificacion) {
+                // Auto-create comprador if missing ID
+                try {
+                    const searchC = await debidaDiligenciaService.buscarPorIdentificacion(comprador.identificacion);
+                    if (searchC.encontrado && searchC.persona) {
+                        compradorId = searchC.persona.id;
+                    } else {
+                        const newComprador = await debidaDiligenciaService.crear({
+                            ...comprador,
+                            tipoPersona: comprador.tipoPersona || 'NATURAL',
+                            identificacion: comprador.identificacion
+                        } as any);
+                        compradorId = newComprador.id;
+                        onPersonUpdate?.('comprador', newComprador);
+                    }
+                } catch (e) {
+                    console.error('Error auto-saving comprador:', e);
+                    setErrorMessage('Error al guardar datos del comprador. Verifique la información.');
+                    setIsVerifying(false);
+                    return;
+                }
+            }
 
-            // Combine results (if either vendedor or comprador has coincidencia, show it)
-            const combinedResults: ListResult[] = ['UAFE', 'OFAC', 'ONU'].map((lista) => {
-                const vendedorResult = vendedorResults.find((r) => r.lista === lista);
-                const compradorResult = compradorResults.find((r) => r.lista === lista);
+            if (!vendedorId || !compradorId) {
+                throw new Error('Faltan datos requeridos del vendedor o comprador.');
+            }
 
-                // If either has coincidencia, show coincidencia
-                if (vendedorResult?.estado === 'coincidencia' || compradorResult?.estado === 'coincidencia') {
-                    return {
-                        lista: lista as 'UAFE' | 'OFAC' | 'ONU',
-                        estado: 'coincidencia' as const,
-                        mensaje: vendedorResult?.estado === 'coincidencia'
-                            ? `Vendedor: ${vendedorResult.mensaje}`
-                            : `Comprador: ${compradorResult?.mensaje}`,
-                    };
+            // Proceed with verification...
+            const response = await listasRestrictivasService.verificar(vendedorId!, compradorId!);
+
+            // Combine results
+            const combinedResults: ListasRestrictivasResult[] = ['UAFE', 'OFAC', 'ONU'].map((listaName) => {
+                const vRes = response.vendedor?.resultados?.find(r => r.lista === listaName);
+                const cRes = response.comprador?.resultados?.find(r => r.lista === listaName);
+
+                let estado: ListasRestrictivasResult['estado'] = 'limpio';
+                let mensaje = '';
+
+                if (vRes?.estado === 'coincidencia') {
+                    estado = 'coincidencia';
+                    mensaje += `Vendedor: ${vRes.mensaje || 'Coincidencia'}. `;
+                }
+                if (cRes?.estado === 'coincidencia') {
+                    estado = 'coincidencia';
+                    mensaje += `Comprador: ${cRes.mensaje || 'Coincidencia'}. `;
                 }
 
                 return {
-                    lista: lista as 'UAFE' | 'OFAC' | 'ONU',
-                    estado: 'limpio' as const,
-                    mensaje: 'Sin coincidencias',
+                    lista: listaName as any,
+                    estado: estado,
+                    mensaje: mensaje.trim() || undefined
                 };
             });
 
             setResults(combinedResults);
 
-            if (onVerified) {
-                onVerified(response);
+            // Check if clean
+            const isClean = combinedResults.every((r) => r.estado === 'limpio');
+            if (isClean) {
+                onVerified?.(combinedResults);
             }
-        } catch (error) {
-            console.error('Error verifying listas:', error);
-            setErrorMessage('Error al verificar listas restrictivas. Intente nuevamente.');
-            setResults([
-                { lista: 'UAFE', estado: 'pendiente' },
-                { lista: 'OFAC', estado: 'pendiente' },
-                { lista: 'ONU', estado: 'pendiente' },
-            ]);
+
+        } catch (error: any) {
+            console.error('Error verifying lists:', error);
+            setErrorMessage(error.message || 'Error al verificar listas restrictivas. Intente nuevamente.');
+            setResults(results.map(r => ({ ...r, estado: 'pendiente', mensaje: 'Error de conexión' })));
         } finally {
             setIsVerifying(false);
         }
     };
 
-    const getStatusIcon = (estado: ListResult['estado']) => {
+    const getStatusIcon = (estado: ListasRestrictivasResult['estado']) => {
         switch (estado) {
-            case 'pendiente':
-                return <Shield className="w-5 h-5 text-gray-400" />;
-            case 'verificando':
-                return <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />;
-            case 'limpio':
-                return <Check className="w-5 h-5 text-green-500" />;
-            case 'coincidencia':
-                return <X className="w-5 h-5 text-red-500" />;
+            case 'verificando': return <Loader2 className="w-5 h-5 animate-spin text-blue-500" />;
+            case 'limpio': return <Check className="w-5 h-5 text-green-500" />;
+            case 'coincidencia': return <X className="w-5 h-5 text-red-500" />;
+            default: return <Shield className="w-5 h-5 text-gray-300" />;
         }
     };
 
-    const getStatusColor = (estado: ListResult['estado']) => {
+    const getStatusText = (estado: ListasRestrictivasResult['estado'], mensaje?: string) => {
         switch (estado) {
-            case 'pendiente':
-                return 'bg-gray-50 border-gray-200';
-            case 'verificando':
-                return 'bg-blue-50 border-blue-200';
-            case 'limpio':
-                return 'bg-green-50 border-green-200';
-            case 'coincidencia':
-                return 'bg-red-50 border-red-200';
+            case 'verificando': return 'Verificando...';
+            case 'limpio': return 'Sin coincidencias';
+            case 'coincidencia': return mensaje || 'Coincidencia detectada';
+            default: return 'Pendiente';
         }
     };
 
-    const getStatusText = (estado: ListResult['estado'], mensaje?: string) => {
+    const getStatusColor = (estado: ListasRestrictivasResult['estado']) => {
         switch (estado) {
-            case 'pendiente':
-                return 'Pendiente';
-            case 'verificando':
-                return 'Verificando...';
-            case 'limpio':
-                return mensaje || 'Sin coincidencias';
-            case 'coincidencia':
-                return mensaje || 'Coincidencia encontrada';
+            case 'verificando': return 'bg-blue-50 text-blue-700 border-blue-100';
+            case 'limpio': return 'bg-green-50 text-green-700 border-green-100';
+            case 'coincidencia': return 'bg-red-50 text-red-700 border-red-100';
+            default: return 'bg-gray-50 text-gray-500 border-gray-100';
         }
     };
+
+    const isButtonDisabled = isVerifying || !vendedor?.identificacion || !comprador?.identificacion;
 
     return (
         <div className="space-y-4">
@@ -147,7 +198,7 @@ export default function ListasRestrictivasCheck({
 
             <button
                 onClick={handleVerify}
-                disabled={isVerifying || !vendedorId || !compradorId}
+                disabled={isButtonDisabled}
                 className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {isVerifying ? (

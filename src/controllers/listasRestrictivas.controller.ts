@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/database';
-import { listasRestrictivasService } from '../services/listasRestrictivas.service';
+import { complianceService } from '../services/compliance.service';
 import logger from '../config/logger';
 
 /**
  * Listas Restrictivas Controller
- * Handles verification against sanctions lists
+ * Handles verification against sanctions lists (Simulated)
  */
 export class ListasRestrictivasController {
     /**
@@ -45,26 +45,34 @@ export class ListasRestrictivasController {
                 comprador.razonSocial ||
                 `${comprador.nombres || ''} ${comprador.apellidos || ''}`.trim();
 
-            // Verify both persons
+            logger.info(`Starting compliance check for Vendedor: ${vendedorNombre}, Comprador: ${compradorNombre}`);
+
+            // Verify both persons using ComplianceService
             const [vendedorResult, compradorResult] = await Promise.all([
-                listasRestrictivasService.verificarPersona(
+                complianceService.checkPerson(
                     vendedor.identificacion,
                     vendedorNombre
                 ),
-                listasRestrictivasService.verificarPersona(
+                complianceService.checkPerson(
                     comprador.identificacion,
                     compradorNombre
                 ),
             ]);
 
-            logger.info('Listas restrictivas verification completed', {
+            logger.info('Listas restrictivas verification completed (Simulation)', {
                 vendedorId,
                 compradorId,
             });
 
             return res.json({
-                vendedor: vendedorResult,
-                comprador: compradorResult,
+                vendedor: {
+                    globalStatus: Object.values(vendedorResult).some(r => r.status === 'MATCH') ? 'MATCH' : 'CLEAN',
+                    details: vendedorResult
+                },
+                comprador: {
+                    globalStatus: Object.values(compradorResult).some(r => r.status === 'MATCH') ? 'MATCH' : 'CLEAN',
+                    details: compradorResult
+                }
             });
         } catch (error) {
             logger.error('Error verifying listas restrictivas:', error);

@@ -209,7 +209,7 @@ export class UAFEIntegration {
      * 
      * @param requerimientoId - UAFE requirement ID
      */
-    async generarRIA(requerimientoId: string): Promise<Reporte> {
+    async generarRIA(_requerimientoId: string): Promise<Reporte> {
         // TODO: Implement RIA generation based on UAFE requirements
         throw new Error('RIA generation not yet implemented');
     }

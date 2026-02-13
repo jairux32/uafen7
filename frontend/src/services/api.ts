@@ -30,13 +30,22 @@ class ApiClient {
         this.client.interceptors.response.use(
             (response) => response,
             (error: AxiosError) => {
+                // Handle 401 Unauthorized
                 if (error.response?.status === 401) {
-                    // Token expired or invalid
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
-                    window.location.href = '/login';
+                    if (!window.location.pathname.includes('/login')) {
+                        window.location.href = '/login';
+                    }
                 }
-                return Promise.reject(error);
+
+                // Handle 500 Server Error
+                if (error.response && error.response.status >= 500) {
+                    console.error('Server Error:', error.response.data);
+                    // You could dispatch a toast notification here
+                }
+
+                return Promise.reject(error.response?.data || error); // Return standard error format
             }
         );
     }

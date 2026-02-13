@@ -204,6 +204,8 @@ model Usuario {
   operacionesCreadas   Operacion[] @relation("OperacionCreador")
   operacionesRevisadas Operacion[] @relation("OperacionRevisor")
   alertasGestionadas   Alerta[]
+  documentosSubidos    Documento[]
+  auditLogs            AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -239,6 +241,9 @@ model DebiDaDiligencia {
   direccion          String?
   telefono           String?
   email              String?
+  parroquia          String?
+  canton             String?
+  provincia          String?
   
   // Información financiera
   ingresosMensuales  Decimal?
@@ -334,9 +339,12 @@ model Operacion {
   fechaEscritura  DateTime
   descripcionBien String
   valorDeclarado  Decimal
+  avaluoMunicipal Decimal?
   formaPago       FormaPago
   montoEfectivo   Decimal?
   nivelRiesgo     NivelRiesgo
+  scoreRiesgo     Int?
+  tipoDD          TipoDD?
   factoresRiesgo  Json // Array de factores detectados
   estado          EstadoOperacion
 
@@ -431,17 +439,18 @@ model Reporte {
   @@index([mes, anio])
 }
 
+
 model Documento {
   id          String         @id @default(uuid())
   tipo        TipoDocumento
   nombre      String
   descripcion String?
-  path        String // Ruta cifrada
-  hash        String // SHA-256
+  path        String // Ruta local o S3
+  hash        String? // SHA-256 opcional
   tamano      Int // bytes
   mimeType    String
-  cifrado     Boolean       @default(true)
-  nivelAcceso NivelAcceso
+  cifrado     Boolean       @default(false)
+  nivelAcceso NivelAcceso   @default(RESTRINGIDO)
 
   // Relaciones (uno u otro, no ambos)
   ddId        String?
@@ -450,6 +459,9 @@ model Documento {
   operacionId String?
   operacion   Operacion? @relation(fields: [operacionId], references: [id], onDelete: Cascade)
 
+  usuarioId   String?
+  subidoPor   Usuario?   @relation(fields: [usuarioId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -457,6 +469,7 @@ model Documento {
   @@index([operacionId])
   @@index([tipo])
 }
+
 
 model ListaRestrictiva {
   id                   String      @id @default(uuid())
@@ -480,3 +493,21 @@ model ListaRestrictiva {
   @@index([fuente])
   @@index([vigente])
 }
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  usuarioId String?
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id])
+  accion    String   // e.g., "LOGIN", "CREATE_OPERACION", "VIEW_REPORT"
+  entidad   String?  // e.g., "Operacion", "DebidaDiligencia"
+  entidadId String?
+  detalles  Json?    // Contexto adicional (payload, params, etc)
+  ip        String?
+  userAgent String?
+  timestamp DateTime @default(now())
+
+  @@index([usuarioId])
+  @@index([accion])
+  @@index([timestamp])
+}
+

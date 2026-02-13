@@ -48,7 +48,7 @@ export class ListasRestrictivasService {
      * Verify against UAFE (Unidad de Análisis Financiero y Económico - Ecuador)
      * MOCK: Always returns clean
      */
-    private async verificarUAFE(identificacion: string, nombre: string): Promise<ListaResult> {
+    private async verificarUAFE(identificacion: string, _nombre: string): Promise<ListaResult> {
         // Simulate API delay
         await this.delay(500);
 
@@ -75,7 +75,7 @@ export class ListasRestrictivasService {
      * Verify against OFAC (Office of Foreign Assets Control - USA)
      * MOCK: Always returns clean
      */
-    private async verificarOFAC(identificacion: string, nombre: string): Promise<ListaResult> {
+    private async verificarOFAC(_identificacion: string, nombre: string): Promise<ListaResult> {
         // Simulate API delay
         await this.delay(800);
 
@@ -102,7 +102,7 @@ export class ListasRestrictivasService {
      * Verify against UN Sanctions List
      * MOCK: Always returns clean
      */
-    private async verificarONU(identificacion: string, nombre: string): Promise<ListaResult> {
+    private async verificarONU(_identificacion: string, _nombre: string): Promise<ListaResult> {
         // Simulate API delay
         await this.delay(600);
 

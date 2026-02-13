@@ -1,32 +1,5 @@
 import { apiClient } from './api';
-
-export interface RiskCalculationInput {
-    tipoActo: string;
-    valorDeclarado: number;
-    montoEfectivo?: number;
-    vendedor?: {
-        tipoPersona?: string;
-        paisConstitucion?: string;
-        esPEP?: boolean;
-    };
-    comprador?: {
-        tipoPersona?: string;
-        paisConstitucion?: string;
-        esPEP?: boolean;
-    };
-}
-
-export interface RiskFactor {
-    nombre: string;
-    puntos: number;
-}
-
-export interface RiskCalculationResponse {
-    score: number;
-    nivel: 'BAJO' | 'MEDIO' | 'ALTO' | 'MUY_ALTO';
-    factores: RiskFactor[];
-    tipoDD: 'SIMPLIFICADA' | 'ESTANDAR' | 'REFORZADA' | 'INTENSIFICADA';
-}
+import type { RiskCalculationInput, RiskCalculationResponse } from '../types';
 
 /**
  * Risk Assessment Service

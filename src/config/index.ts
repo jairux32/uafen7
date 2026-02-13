@@ -8,6 +8,7 @@ interface Config {
     port: number;
     host: string;
     nodeEnv: string;
+    corsOrigin: string;
 
     // Database
     databaseUrl: string;
@@ -89,6 +90,7 @@ const config: Config = {
     port: parseInt(process.env.PORT || '3000', 10),
     host: process.env.HOST || 'localhost',
     nodeEnv: process.env.NODE_ENV || 'development',
+    corsOrigin: process.env.CORS_ORIGIN || '*',
 
     databaseUrl: process.env.DATABASE_URL || '',
 

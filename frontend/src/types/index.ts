@@ -13,8 +13,25 @@ export type RolUsuario = 'MATRIZADOR' | 'OFICIAL_CUMPLIMIENTO' | 'NOTARIO' | 'AD
 
 export type NivelRiesgo = 'BAJO' | 'MEDIO' | 'ALTO' | 'MUY_ALTO';
 export type TipoDD = 'SIMPLIFICADA' | 'ESTANDAR' | 'REFORZADA' | 'INTENSIFICADA';
-export type EstadoOperacion = 'BORRADOR' | 'EN_REVISION' | 'APROBADA' | 'RECHAZADA';
+export type EstadoOperacion = 'BORRADOR' | 'EN_REVISION' | 'APROBADA' | 'REPORTADA' | 'ARCHIVADA';
 export type TipoActo = 'COMPRAVENTA' | 'HIPOTECA' | 'DONACION' | 'PODER' | 'TESTAMENTO' | 'OTRO';
+export type TipoDocumento = 'CEDULA' | 'RUC' | 'PASAPORTE' | 'NOMBRAMIENTO' | 'ESTATUTOS' | 'FORMULARIO_KYC' | 'COMPROBANTE_INGRESOS' | 'DECLARACION_ORIGEN_FONDOS' | 'REPORTE_ROS' | 'EVIDENCIA_ALERTA' | 'OTRO';
+
+export interface Documento {
+    id: string;
+    nombre: string;
+    tipo: TipoDocumento;
+    descripcion?: string;
+    mimeType: string;
+    tamano: number;
+    operacionId: string;
+    subidoPor?: {
+        nombres: string; // Updated to match backend select
+        apellidos: string;
+        email: string;
+    };
+    createdAt: string;
+}
 
 export interface Operacion {
     id: string;
@@ -26,8 +43,8 @@ export interface Operacion {
     formaPago: string;
     montoEfectivo?: number;
     nivelRiesgo: NivelRiesgo;
-    scoreRiesgo: number;
-    tipoDD: TipoDD;
+    scoreRiesgo: number | null;
+    tipoDD: TipoDD | null;
     estado: EstadoOperacion;
     vendedor: DebiDaDiligencia;
     comprador: DebiDaDiligencia;
@@ -36,22 +53,67 @@ export interface Operacion {
     updatedAt: Date;
 }
 
+export interface CreateOperacionRequest {
+    numeroEscritura: string;
+    fechaEscritura: string;
+    tipoActo: string;
+    descripcionBien: string;
+    valorDeclarado: number;
+    formaPago: string;
+    montoEfectivo?: number;
+    vendedorId: string;
+    compradorId: string;
+}
+
 export interface DebiDaDiligencia {
     id: string;
     tipoPersona: 'NATURAL' | 'JURIDICA';
+    identificacion: string;
     nombres?: string;
     apellidos?: string;
     razonSocial?: string;
     cedula?: string;
     ruc?: string;
-    nacionalidad: string;
-    direccion: string;
-    telefono: string;
+    nacionalidad?: string;
+    paisConstitucion?: string;
+    direccion?: string;
+    telefono?: string;
     email?: string;
+    ingresosMensuales?: number;
+    origenFondos?: string;
+    actividadEconomica?: string;
     esPEP: boolean;
     estadoCivil?: 'SOLTERO' | 'CASADO' | 'DIVORCIADO' | 'VIUDO' | 'UNION_LIBRE';
     nombreConyuge?: string;
     identificacionConyuge?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface RiskCalculationInput {
+    tipoActo: string;
+    valorDeclarado: number;
+    montoEfectivo?: number;
+    vendedor?: Partial<DebiDaDiligencia>;
+    comprador?: Partial<DebiDaDiligencia>;
+}
+
+export interface RiskFactor {
+    nombre: string;
+    puntos: number;
+}
+
+export interface RiskCalculationResponse {
+    score: number;
+    nivel: NivelRiesgo;
+    factores: RiskFactor[];
+    tipoDD: TipoDD;
+}
+
+export interface ListasRestrictivasResult {
+    lista: 'UAFE' | 'OFAC' | 'ONU';
+    estado: 'pendiente' | 'verificando' | 'limpio' | 'coincidencia';
+    mensaje?: string;
 }
 
 export type SeveridadAlerta = 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA';
@@ -116,4 +178,23 @@ export interface ApiError {
     message: string;
     code?: string;
     details?: any;
+}
+
+export interface DashboardStats {
+    total: number;
+    porEstado: {
+        borradores: number;
+        revision: number;
+        aprobadas: number;
+        archivadas: number;
+    };
+    riesgoDistribucion: {
+        nivel: NivelRiesgo;
+        cantidad: number;
+    }[];
+    operacionesPorMes: {
+        mes: string;
+        operaciones: number;
+    }[];
+    alertasPendientes: number;
 }

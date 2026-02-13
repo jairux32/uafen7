@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, User, ShoppingCart, FileText } from 'lucide-react';
 import StepIndicator from '../../components/operaciones/StepIndicator';
-import RiskScoreCircle from '../../components/operaciones/RiskScoreCircle';
 import PersonaForm from '../../components/operaciones/PersonaForm';
 import ListasRestrictivasCheck from '../../components/operaciones/ListasRestrictivasCheck';
 import { debidaDiligenciaService } from '../../services/debidaDiligencia.service';
 import { operationsService } from '../../services/operations.service';
 import { riskAssessmentService } from '../../services/riskAssessment.service';
+import type { DebiDaDiligencia, CreateOperacionRequest, RiskCalculationResponse } from '../../types';
 
 const STEPS = [
     { number: 1, label: 'Datos Generales' },
@@ -15,10 +15,25 @@ const STEPS = [
     { number: 3, label: 'Revisión' },
 ];
 
+interface NuevaOperacionState {
+    tipoActo: string;
+    valorDeclarado: string;
+    montoEfectivo: string;
+    formaPago: string;
+    numeroEscritura: string;
+    descripcionBien: string;
+    ubicacion: string;
+    fechaEscritura: string;
+    vendedor: Partial<DebiDaDiligencia> | null;
+    comprador: Partial<DebiDaDiligencia> | null;
+    riesgo: RiskCalculationResponse | null;
+    listasVerificadas: boolean;
+}
+
 export default function NuevaOperacionPage() {
     const navigate = useNavigate();
     const [currentStep, setCurrentStep] = useState(1);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<NuevaOperacionState>({
         tipoActo: 'COMPRAVENTA',
         valorDeclarado: '',
         montoEfectivo: '',
@@ -27,41 +42,31 @@ export default function NuevaOperacionPage() {
         descripcionBien: '',
         ubicacion: '',
         fechaEscritura: '',
-        vendedor: null as any,
-        comprador: null as any,
-        riesgo: null as any,
+        vendedor: null,
+        comprador: null,
+        riesgo: null,
         listasVerificadas: false,
     });
 
-    const updateFormData = (field: string, value: any) => {
-        console.log(`Updating ${field}: `, value); // Debug log
+    const updateFormData = (field: keyof NuevaOperacionState, value: any) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
-
 
     // Real-time risk calculation
     useEffect(() => {
         const calculateRisk = async () => {
-            // Only calculate if we have minimum required data
-            if (!formData.tipoActo || !formData.valorDeclarado) {
-                return;
-            }
+            // Guard clauses to prevent unnecessary API calls
+            if (!formData.valorDeclarado || parseFloat(formData.valorDeclarado) <= 0) return;
+            // Only calculate if we have at least partial data
+            if (!formData.vendedor?.identificacion && !formData.comprador?.identificacion) return;
 
             try {
                 const riskInput = {
                     tipoActo: formData.tipoActo,
                     valorDeclarado: parseFloat(formData.valorDeclarado) || 0,
                     montoEfectivo: formData.montoEfectivo ? parseFloat(formData.montoEfectivo) : undefined,
-                    vendedor: formData.vendedor?.esPEP !== undefined ? {
-                        tipoPersona: formData.vendedor.tipoPersona,
-                        paisConstitucion: formData.vendedor.paisConstitucion,
-                        esPEP: formData.vendedor.esPEP,
-                    } : undefined,
-                    comprador: formData.comprador?.esPEP !== undefined ? {
-                        tipoPersona: formData.comprador.tipoPersona,
-                        paisConstitucion: formData.comprador.paisConstitucion,
-                        esPEP: formData.comprador.esPEP,
-                    } : undefined,
+                    vendedor: formData.vendedor || undefined,
+                    comprador: formData.comprador || undefined,
                 };
 
                 const riskResult = await riskAssessmentService.calcularRiesgoPreliminar(riskInput);
@@ -69,20 +74,15 @@ export default function NuevaOperacionPage() {
                 // Update form data with calculated risk
                 setFormData(prev => ({
                     ...prev,
-                    riesgo: {
-                        score: riskResult.score,
-                        nivel: riskResult.nivel,
-                        factores: riskResult.factores,
-                        tipoDD: riskResult.tipoDD,
-                    },
+                    riesgo: riskResult,
                 }));
             } catch (error) {
                 console.error('Error calculating risk:', error);
             }
         };
 
-        // Debounce the calculation
-        const timeoutId = setTimeout(calculateRisk, 500);
+        // Debounce the calculation (2000ms)
+        const timeoutId = setTimeout(calculateRisk, 2000);
         return () => clearTimeout(timeoutId);
     }, [formData.tipoActo, formData.valorDeclarado, formData.montoEfectivo, formData.vendedor, formData.comprador]);
 
@@ -90,7 +90,6 @@ export default function NuevaOperacionPage() {
         if (currentStep < 3) {
             setCurrentStep(currentStep + 1);
         } else {
-            // Submit form
             handleSubmit();
         }
     };
@@ -107,18 +106,13 @@ export default function NuevaOperacionPage() {
             let vendedorId = formData.vendedor?.id;
             if (!vendedorId && formData.vendedor?.identificacion) {
                 const vendedorData = {
+                    ...formData.vendedor,
                     tipoPersona: formData.vendedor.tipoPersona || 'NATURAL',
                     identificacion: formData.vendedor.identificacion,
-                    nombres: formData.vendedor.nombres,
-                    apellidos: formData.vendedor.apellidos,
-                    razonSocial: formData.vendedor.razonSocial,
-                    nacionalidad: formData.vendedor.nacionalidad,
-                    paisConstitucion: formData.vendedor.paisConstitucion,
-                    ingresosMensuales: formData.vendedor.ingresosMensuales ? parseFloat(formData.vendedor.ingresosMensuales) : undefined,
-                    origenFondos: formData.vendedor.origenFondos,
+                    // Ensure required fields
+                    nacionalidad: formData.vendedor.nacionalidad || 'Ecuatoriana',
                     esPEP: formData.vendedor.esPEP || false,
-                    actividadEconomica: formData.vendedor.actividadEconomica,
-                };
+                } as any; // Cast for creation
                 const vendedor = await debidaDiligenciaService.crear(vendedorData);
                 vendedorId = vendedor.id;
             }
@@ -127,40 +121,35 @@ export default function NuevaOperacionPage() {
             let compradorId = formData.comprador?.id;
             if (!compradorId && formData.comprador?.identificacion) {
                 const compradorData = {
+                    ...formData.comprador,
                     tipoPersona: formData.comprador.tipoPersona || 'NATURAL',
                     identificacion: formData.comprador.identificacion,
-                    nombres: formData.comprador.nombres,
-                    apellidos: formData.comprador.apellidos,
-                    razonSocial: formData.comprador.razonSocial,
-                    nacionalidad: formData.comprador.nacionalidad,
-                    paisConstitucion: formData.comprador.paisConstitucion,
-                    ingresosMensuales: formData.comprador.ingresosMensuales ? parseFloat(formData.comprador.ingresosMensuales) : undefined,
-                    origenFondos: formData.comprador.origenFondos,
+                    nacionalidad: formData.comprador.nacionalidad || 'Ecuatoriana',
                     esPEP: formData.comprador.esPEP || false,
-                    actividadEconomica: formData.comprador.actividadEconomica,
-                };
+                } as any;
                 const comprador = await debidaDiligenciaService.crear(compradorData);
                 compradorId = comprador.id;
             }
 
+            if (!vendedorId || !compradorId) {
+                alert('Error: Faltan datos del vendedor o comprador');
+                return;
+            }
+
             // Now create the operation with the IDs
-            const operacionData = {
+            const operacionData: CreateOperacionRequest = {
                 tipoActo: formData.tipoActo,
                 valorDeclarado: parseFloat(formData.valorDeclarado),
                 formaPago: formData.formaPago,
                 montoEfectivo: formData.montoEfectivo ? parseFloat(formData.montoEfectivo) : undefined,
                 numeroEscritura: formData.numeroEscritura,
-                fechaEscritura: formData.fechaEscritura,
+                fechaEscritura: new Date(formData.fechaEscritura).toISOString(),
                 descripcionBien: formData.descripcionBien,
                 vendedorId,
                 compradorId,
             };
 
-            // Create the operation
-            console.log('Creating operation:', operacionData);
-            const createdOperation = await operationsService.createOperacion(operacionData);
-            console.log('Operation created successfully:', createdOperation);
-
+            await operationsService.createOperacion(operacionData);
             navigate('/operaciones');
         } catch (error) {
             console.error('Error creating operation:', error);
@@ -208,11 +197,12 @@ export default function NuevaOperacionPage() {
                         <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Evaluación de Riesgo</h3>
-                                <div className={`px - 4 py - 2 rounded - full text - sm font - semibold ${formData.riesgo?.nivel === 'BAJO' ? 'bg-green-100 text-green-800' :
+                                <div className={`px-4 py-2 rounded-full text-sm font-semibold ${formData.riesgo?.nivel === 'BAJO' ? 'bg-green-100 text-green-800' :
                                     formData.riesgo?.nivel === 'MEDIO' ? 'bg-yellow-100 text-yellow-800' :
                                         formData.riesgo?.nivel === 'ALTO' ? 'bg-orange-100 text-orange-800' :
-                                            'bg-red-100 text-red-800'
-                                    } `}>
+                                            formData.riesgo?.nivel === 'MUY_ALTO' ? 'bg-red-100 text-red-800' :
+                                                'bg-gray-100 text-gray-800'
+                                    }`}>
                                     {formData.riesgo?.nivel || 'NO CALCULADO'}
                                 </div>
                             </div>
@@ -226,7 +216,7 @@ export default function NuevaOperacionPage() {
                                 <div className="flex-1">
                                     <h4 className="font-medium text-gray-700 mb-2">Factores de Riesgo:</h4>
                                     <div className="space-y-1">
-                                        {formData.riesgo?.factores?.map((factor: any, index: any) => (
+                                        {formData.riesgo?.factores?.map((factor, index) => (
                                             <div key={index} className="flex justify-between text-sm">
                                                 <span className="text-gray-600">{factor.nombre}</span>
                                                 <span className="font-medium text-purple-600">+{factor.puntos}</span>
@@ -262,7 +252,7 @@ export default function NuevaOperacionPage() {
                         </button>
                     )}
                     <button onClick={handleNext} className="btn-primary">
-                        {currentStep === 3 ? 'Crear Operación →' : 'Siguiente: ' + STEPS[currentStep].label + ' →'}
+                        {currentStep === 3 ? 'Crear Operación →' : 'Siguiente: ' + (STEPS[currentStep] ? STEPS[currentStep].label : 'Paso') + ' →'}
                     </button>
                 </div>
             </div>
@@ -271,7 +261,7 @@ export default function NuevaOperacionPage() {
 }
 
 // Paso 1: Datos Generales
-function Paso1DatosGenerales({ formData, updateFormData }: any) {
+function Paso1DatosGenerales({ formData, updateFormData }: { formData: NuevaOperacionState; updateFormData: (field: keyof NuevaOperacionState, value: any) => void }) {
     return (
         <div className="card">
             <div className="flex items-center gap-2 mb-6">
@@ -408,7 +398,7 @@ function Paso1DatosGenerales({ formData, updateFormData }: any) {
 }
 
 // Paso 2: Debida Diligencia
-function Paso2DebidaDiligencia({ formData, updateFormData }: any) {
+function Paso2DebidaDiligencia({ formData, updateFormData }: { formData: NuevaOperacionState; updateFormData: (field: keyof NuevaOperacionState, value: any) => void }) {
     return (
         <div className="space-y-6">
             {/* Vendedor */}
@@ -427,16 +417,17 @@ function Paso2DebidaDiligencia({ formData, updateFormData }: any) {
 
             {/* Listas Restrictivas */}
             <ListasRestrictivasCheck
-                vendedorId={formData.vendedor?.id}
-                compradorId={formData.comprador?.id}
+                vendedor={formData.vendedor || {}}
+                comprador={formData.comprador || {}}
                 onVerified={() => updateFormData('listasVerificadas', true)}
+                onPersonUpdate={(tipo, data) => updateFormData(tipo, data)}
             />
         </div>
     );
 }
 
 // Paso 3: Revisión
-function Paso3Revision({ formData }: any) {
+function Paso3Revision({ formData }: { formData: NuevaOperacionState }) {
     return (
         <div className="space-y-6">
             {/* Resumen de Operación */}
@@ -453,6 +444,12 @@ function Paso3Revision({ formData }: any) {
                     <div>
                         <span className="text-gray-600">Fecha:</span>
                         <p className="font-semibold text-gray-900">{formData.fechaEscritura || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">Cuantía</p>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                            ${formData.valorDeclarado ? parseFloat(formData.valorDeclarado).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}
+                        </p>
                     </div>
                     <div>
                         <span className="text-gray-600">Moneda:</span>
@@ -474,7 +471,7 @@ function Paso3Revision({ formData }: any) {
                     </div>
                     <div className="space-y-2 text-sm">
                         <p className="font-semibold text-gray-900">
-                            {formData.vendedor?.nombres || 'No especificado'}
+                            {formData.vendedor?.nombres || formData.vendedor?.razonSocial || 'No especificado'}
                         </p>
                         <p className="text-gray-600">
                             {formData.vendedor?.identificacion || 'Sin ID'}
@@ -492,7 +489,7 @@ function Paso3Revision({ formData }: any) {
                     </div>
                     <div className="space-y-2 text-sm">
                         <p className="font-semibold text-gray-900">
-                            {formData.comprador?.nombres || 'No especificado'}
+                            {formData.comprador?.nombres || formData.comprador?.razonSocial || 'No especificado'}
                         </p>
                         <p className="text-gray-600">
                             {formData.comprador?.identificacion || 'Sin ID'}

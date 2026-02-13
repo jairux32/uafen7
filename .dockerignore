@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+logs
+uploads
+.git
+.env
+.DS_Store
+frontend/node_modules
+frontend/dist
+frontend/.env

@@ -15,6 +15,10 @@ import alertRoutes from './routes/alert.routes';
 import reporteRoutes from './routes/reporte.routes';
 import debidaDiligenciaRoutes from './routes/debidaDiligencia.routes';
 import listasRestrictivasRoutes from './routes/listasRestrictivas.routes';
+import documentoRoutes from './routes/documento.routes';
+import adminRoutes from './routes/admin.routes';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 
 const app: Application = express();
 
@@ -28,7 +32,7 @@ app.use(helmet());
 // CORS
 app.use(
     cors({
-        origin: config.nodeEnv === 'production' ? ['https://yourdomain.com'] : '*',
+        origin: config.corsOrigin,
         credentials: true,
     })
 );
@@ -62,8 +66,15 @@ app.use(passport.initialize());
 // ROUTES
 // ============================================================================
 
+// API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api-docs.json', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+});
+
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -78,6 +89,8 @@ app.use('/api/alertas', alertRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api/debida-diligencia', debidaDiligenciaRoutes);
 app.use('/api/verificar-listas', listasRestrictivasRoutes);
+app.use('/api/documentos', documentoRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ============================================================================
 // ERROR HANDLING

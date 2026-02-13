@@ -42,7 +42,7 @@ export const createOperacionSchema = z.object({
     montoEfectivo: z.number().optional(),
     vendedorId: z.string().uuid('ID de vendedor inválido'),
     compradorId: z.string().uuid('ID de comprador inválido'),
-    notariaId: z.string().uuid('ID de notaría inválido'),
+    notariaId: z.string().uuid('ID de notaría inválido').optional(),
 });
 
 // Debida Diligencia schemas

@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../config/database';
 import logger from '../config/logger';
-import { redisClient } from '../config/database';
+
 
 interface AlertaInput {
     tipo: TipoAlerta;
@@ -27,16 +27,16 @@ export class AlertManagementService {
      * Validate cash payment (>= $10,000 USD is prohibited)
      */
     async validarEfectivo(operacion: Operacion): Promise<void> {
-        if (operacion.montoEfectivo && operacion.montoEfectivo >= 10000) {
+        if (operacion.montoEfectivo && Number(operacion.montoEfectivo) >= 10000) {
             await this.crearAlerta({
                 tipo: TipoAlerta.EFECTIVO_EXCEDE_LIMITE,
                 severidad: SeveridadAlerta.CRITICA,
                 titulo: 'Pago en efectivo excede límite legal',
-                descripcion: `Operación con pago en efectivo de $${operacion.montoEfectivo.toLocaleString()} USD. El límite legal es $10,000 USD.`,
+                descripcion: `Operación con pago en efectivo de $${Number(operacion.montoEfectivo).toLocaleString()} USD. El límite legal es $10,000 USD.`,
                 detalles: {
-                    montoEfectivo: operacion.montoEfectivo,
+                    montoEfectivo: Number(operacion.montoEfectivo),
                     limiteLegal: 10000,
-                    exceso: operacion.montoEfectivo - 10000,
+                    exceso: Number(operacion.montoEfectivo) - 10000,
                 },
                 operacionId: operacion.id,
             });
@@ -57,7 +57,7 @@ export class AlertManagementService {
 
         if (
             operacion.tipoActo === 'COMPRAVENTA' &&
-            operacion.valorDeclarado < 5000
+            Number(operacion.valorDeclarado) < 5000
         ) {
             await this.crearAlerta({
                 tipo: TipoAlerta.SUBVALORACION_BIEN,
@@ -131,7 +131,7 @@ export class AlertManagementService {
     /**
      * Verify against restrictive lists (UAFE, OFAC, UN, etc.)
      */
-    async verificarListasRestrictivas(dd: DebiDaDiligencia): Promise<void> {
+    async verificarListasRestrictivas(dd: DebiDaDiligencia, operacionId: string): Promise<void> {
         try {
             // Search in cached lists
             const nombre = dd.tipoPersona === 'NATURAL'
@@ -172,7 +172,7 @@ export class AlertManagementService {
                             },
                             operacion: {
                                 connect: {
-                                    id: dd.operacionesComprador[0]?.id || dd.operacionesVendedor[0]?.id,
+                                    id: operacionId,
                                 },
                             },
                         },

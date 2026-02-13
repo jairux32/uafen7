@@ -1,24 +1,23 @@
 import { Search } from 'lucide-react';
 import { useState } from 'react';
 import { debidaDiligenciaService } from '../../services/debidaDiligencia.service';
+import type { DebiDaDiligencia } from '../../types';
 
 interface PersonaFormProps {
     title: string;
     icon: React.ReactNode;
-    onPersonaChange?: (data: any) => void;
+    onPersonaChange?: (data: Partial<DebiDaDiligencia>) => void;
 }
 
 export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFormProps) {
     const [tipoPersona, setTipoPersona] = useState<'NATURAL' | 'JURIDICA'>('NATURAL');
-    const [formData, setFormData] = useState({
-        id: '',
+    const [formData, setFormData] = useState<Partial<DebiDaDiligencia>>({
         identificacion: '',
         nombres: '',
         apellidos: '',
         razonSocial: '',
         nacionalidad: 'Ecuatoriana',
         paisConstitucion: 'Ecuador',
-        ingresosMensuales: '',
         origenFondos: '',
         esPEP: false,
         actividadEconomica: '',
@@ -26,6 +25,9 @@ export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFor
         nombreConyuge: '',
         identificacionConyuge: '',
     });
+    // income string buffer for input handling
+    const [ingresosMensualesStr, setIngresosMensualesStr] = useState('');
+
     const [isSearching, setIsSearching] = useState(false);
     const [searchMessage, setSearchMessage] = useState('');
 
@@ -44,26 +46,11 @@ export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFor
             if (response.encontrado && response.persona) {
                 // Populate form with found data
                 const persona = response.persona;
-                const newData = {
-                    id: persona.id,
-                    identificacion: persona.identificacion,
-                    nombres: persona.nombres || '',
-                    apellidos: persona.apellidos || '',
-                    razonSocial: persona.razonSocial || '',
-                    nacionalidad: persona.nacionalidad || 'Ecuatoriana',
-                    paisConstitucion: persona.paisConstitucion || 'Ecuador',
-                    ingresosMensuales: persona.ingresosMensuales?.toString() || '',
-                    origenFondos: persona.origenFondos || '',
-                    esPEP: persona.esPEP,
-                    actividadEconomica: persona.actividadEconomica || '',
-                    estadoCivil: persona.estadoCivil || 'SOLTERO',
-                    nombreConyuge: persona.nombreConyuge || '',
-                    identificacionConyuge: persona.identificacionConyuge || '',
-                };
-                setFormData(newData);
+                setFormData(persona);
+                setIngresosMensualesStr(persona.ingresosMensuales?.toString() || '');
                 setTipoPersona(persona.tipoPersona);
                 setSearchMessage('✅ Persona encontrada en el sistema');
-                onPersonaChange?.(newData);
+                onPersonaChange?.(persona);
             } else {
                 setSearchMessage('ℹ️ Persona no encontrada. Complete los datos para crear un nuevo registro.');
             }
@@ -75,22 +62,39 @@ export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFor
         }
     };
 
-    const handleChange = (field: string, value: any) => {
+    const notifyChange = (data: Partial<DebiDaDiligencia>, incomeStr: string) => {
+        const cleanData = {
+            ...data,
+            tipoPersona: tipoPersona, // Keep current type reference
+            ingresosMensuales: incomeStr ? Number(incomeStr) : undefined,
+        };
+        onPersonaChange?.(cleanData);
+    };
+
+    const handleChange = (field: keyof DebiDaDiligencia, value: any) => {
         const newData = { ...formData, [field]: value };
         setFormData(newData);
-        onPersonaChange?.(newData);
+        notifyChange(newData, ingresosMensualesStr);
+    };
+
+    const handleIncomeChange = (value: string) => {
+        setIngresosMensualesStr(value);
+        notifyChange(formData, value);
     };
 
     const handleTipoPersonaChange = (tipo: 'NATURAL' | 'JURIDICA') => {
         setTipoPersona(tipo);
-        // Clear type-specific fields
+        let newData = { ...formData, tipoPersona: tipo };
+
+        // Clear type-specific fields references
         if (tipo === 'NATURAL') {
-            handleChange('razonSocial', '');
-            handleChange('paisConstitucion', '');
+            newData = { ...newData, razonSocial: undefined, paisConstitucion: 'Ecuador' };
         } else {
-            handleChange('nombres', '');
-            handleChange('apellidos', '');
+            newData = { ...newData, nombres: undefined, apellidos: undefined, nacionalidad: undefined };
         }
+
+        setFormData(newData);
+        notifyChange(newData, ingresosMensualesStr);
     };
 
     return (
@@ -278,8 +282,8 @@ export default function PersonaForm({ title, icon, onPersonaChange }: PersonaFor
                         <span className="absolute left-3 top-2.5 text-gray-500">$</span>
                         <input
                             type="number"
-                            value={formData.ingresosMensuales}
-                            onChange={(e) => handleChange('ingresosMensuales', e.target.value)}
+                            value={ingresosMensualesStr}
+                            onChange={(e) => handleIncomeChange(e.target.value)}
                             className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                         />
                     </div>

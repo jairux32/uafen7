@@ -1,40 +1,38 @@
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import RiesgoBadge from '../../components/common/RiesgoBadge';
+import { operacionService } from '../../services/operacion.service';
 
-interface DashboardStats {
-    totalOperaciones: number;
-    alertasPendientes: number;
-    reportesEnviados: number;
-    nivelRiesgoPromedio: string;
-}
-
-// Datos para gráfico de operaciones por mes
-const operacionesPorMes = [
-    { mes: 'Ago', operaciones: 45 },
-    { mes: 'Sep', operaciones: 52 },
-    { mes: 'Oct', operaciones: 48 },
-    { mes: 'Nov', operaciones: 61 },
-    { mes: 'Dic', operaciones: 55 },
-    { mes: 'Ene', operaciones: 68 },
-    { mes: 'Feb', operaciones: 42 },
-];
-
-// Datos para gráfico de distribución de riesgo
-const distribucionRiesgo = [
-    { nivel: 'Bajo', cantidad: 85, color: '#10b981' },
-    { nivel: 'Medio', cantidad: 45, color: '#f59e0b' },
-    { nivel: 'Alto', cantidad: 15, color: '#ef4444' },
-    { nivel: 'Muy Alto', cantidad: 5, color: '#7f1d1d' },
-];
+// Colores para gráfico de distribución de riesgo
+const RISK_COLORS: Record<string, string> = {
+    'BAJO': '#10b981',
+    'MEDIO': '#f59e0b',
+    'ALTO': '#ef4444',
+    'MUY_ALTO': '#7f1d1d',
+};
 
 export default function DashboardPage() {
-    const [stats] = useState<DashboardStats>({
-        totalOperaciones: 150,
-        alertasPendientes: 5,
-        reportesEnviados: 12,
-        nivelRiesgoPromedio: 'MEDIO',
+    const { data: stats, isLoading, error } = useQuery({
+        queryKey: ['dashboard-stats'],
+        queryFn: operacionService.getStats,
     });
+
+    if (isLoading) {
+        return <div className="p-8 text-center text-gray-500">Cargando estadísticas...</div>;
+    }
+
+    if (error) {
+        return (
+            <div className="p-6 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                Error al cargar el dashboard: {(error as Error).message}
+            </div>
+        );
+    }
+
+    // Preparar datos para gráficos
+    const distribucionRiesgoData = stats?.riesgoDistribucion.map(item => ({
+        ...item,
+        color: RISK_COLORS[item.nivel] || '#9ca3af',
+    })) || [];
 
     return (
         <div className="space-y-6">
@@ -51,13 +49,9 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-gray-600">Total Operaciones</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalOperaciones}</p>
+                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.total || 0}</p>
                         </div>
                         <div className="text-4xl">📋</div>
-                    </div>
-                    <div className="mt-4 flex items-center text-sm text-green-600">
-                        <span>↑ 12%</span>
-                        <span className="ml-2 text-gray-500">vs mes anterior</span>
                     </div>
                 </div>
 
@@ -66,41 +60,38 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-gray-600">Alertas Pendientes</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats.alertasPendientes}</p>
+                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.alertasPendientes || 0}</p>
                         </div>
                         <div className="text-4xl">🚨</div>
                     </div>
-                    <div className="mt-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            Requiere atención
-                        </span>
-                    </div>
+                    {(stats?.alertasPendientes || 0) > 0 && (
+                        <div className="mt-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Requiere atención
+                            </span>
+                        </div>
+                    )}
                 </div>
 
-                {/* Reportes Enviados */}
+                {/* Por Revisar (En Revisión) */}
                 <div className="card">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Reportes Enviados</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats.reportesEnviados}</p>
+                            <p className="text-sm font-medium text-gray-600">En Revisión</p>
+                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.porEstado.revision || 0}</p>
                         </div>
-                        <div className="text-4xl">📄</div>
-                    </div>
-                    <div className="mt-4 flex items-center text-sm text-blue-600">
-                        <span>✓ Al día</span>
+                        <div className="text-4xl">👀</div>
                     </div>
                 </div>
 
-                {/* Nivel de Riesgo Promedio */}
+                {/* Borradores */}
                 <div className="card">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Nivel de Riesgo Promedio</p>
-                            <div className="mt-2">
-                                <RiesgoBadge nivel={stats.nivelRiesgoPromedio as any} size="lg" />
-                            </div>
+                            <p className="text-sm font-medium text-gray-600">Borradores</p>
+                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats?.porEstado.borradores || 0}</p>
                         </div>
-                        <div className="text-4xl">⚖️</div>
+                        <div className="text-4xl">📝</div>
                     </div>
                 </div>
             </div>
@@ -110,67 +101,64 @@ export default function DashboardPage() {
                 {/* Operaciones por Mes */}
                 <div className="card">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Operaciones por Mes</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={operacionesPorMes}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis
-                                dataKey="mes"
-                                tick={{ fill: '#6b7280', fontSize: 12 }}
-                                axisLine={{ stroke: '#d1d5db' }}
-                            />
-                            <YAxis
-                                tick={{ fill: '#6b7280', fontSize: 12 }}
-                                axisLine={{ stroke: '#d1d5db' }}
-                            />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: '#fff',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                                }}
-                            />
-                            <Bar
-                                dataKey="operaciones"
-                                fill="#3b82f6"
-                                radius={[8, 8, 0, 0]}
-                                name="Operaciones"
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <BarChart data={stats?.operacionesPorMes || []}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis
+                                    dataKey="mes"
+                                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                                    axisLine={{ stroke: '#d1d5db' }}
+                                />
+                                <YAxis
+                                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                                    axisLine={{ stroke: '#d1d5db' }}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: '#fff',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                    }}
+                                />
+                                <Bar
+                                    dataKey="operaciones"
+                                    fill="#3b82f6"
+                                    radius={[8, 8, 0, 0]}
+                                    name="Operaciones"
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
 
                 {/* Distribución por Nivel de Riesgo */}
                 <div className="card">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Distribución por Nivel de Riesgo</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie
-                                data={distribucionRiesgo}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={(props: any) => `${props.nivel}: ${((props.percent || 0) * 100).toFixed(0)}%`}
-                                outerRadius={100}
-                                fill="#8884d8"
-                                dataKey="cantidad"
-                            >
-                                {distribucionRiesgo.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: '#fff',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                                }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <PieChart>
+                                <Pie
+                                    data={distribucionRiesgoData}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={(props: any) => `${props.nivel}: ${((props.percent || 0) * 100).toFixed(0)}%`}
+                                    outerRadius={100}
+                                    fill="#8884d8"
+                                    dataKey="cantidad"
+                                >
+                                    {distribucionRiesgoData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                        {distribucionRiesgo.map((item) => (
+                        {distribucionRiesgoData.map((item) => (
                             <div key={item.nivel} className="flex items-center">
                                 <div
                                     className="w-3 h-3 rounded-full mr-2"
@@ -182,54 +170,6 @@ export default function DashboardPage() {
                             </div>
                         ))}
                     </div>
-                </div>
-            </div>
-
-            {/* Alertas Recientes */}
-            <div className="card">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Alertas Recientes</h3>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Tipo
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Operación
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Fecha
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Estado
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Acciones
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            <tr>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className="badge-alert-critica">CRÍTICA</span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    Escritura 045-2026
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    11/02/2026
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className="badge bg-yellow-100 text-yellow-800">PENDIENTE</span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <button className="text-primary-600 hover:text-primary-900">Analizar</button>
-                                </td>
-                            </tr>
-                            {/* Add more rows as needed */}
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>

@@ -8,7 +8,7 @@ export const errorHandler = (
     err: any,
     req: Request,
     res: Response,
-    next: NextFunction
+    _next: NextFunction
 ) => {
     // Log error
     logger.error('Error occurred', {
@@ -55,7 +55,7 @@ export const errorHandler = (
     const statusCode = err.statusCode || 500;
     const message = err.message || 'Error interno del servidor';
 
-    res.status(statusCode).json({
+    return res.status(statusCode).json({
         error: message,
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     });

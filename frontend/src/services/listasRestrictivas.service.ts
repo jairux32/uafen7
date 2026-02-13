@@ -1,16 +1,10 @@
 import { apiClient } from './api';
-
-export interface ListaResult {
-    lista: 'UAFE' | 'OFAC' | 'ONU';
-    estado: 'limpio' | 'coincidencia';
-    mensaje?: string;
-    detalles?: any;
-}
+import type { ListasRestrictivasResult } from '../types';
 
 export interface VerificacionResult {
     identificacion: string;
     nombre: string;
-    resultados: ListaResult[];
+    resultados: ListasRestrictivasResult[];
 }
 
 export interface VerificarListasResponse {

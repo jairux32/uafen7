@@ -6,12 +6,100 @@ import { loginSchema, registerSchema } from '../models/schemas';
 import logger from '../config/logger';
 
 /**
- * Authentication Controller
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Authentication management
+ *
+ * components:
+ *   schemas:
+ *     LoginRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           example: admin@notaria.com
+ *         password:
+ *           type: string
+ *           format: password
+ *           example: admin123
+ *     RegisterRequest:
+ *       type: object
+ *       required:
+ *         - nombres
+ *         - apellidos
+ *         - cedula
+ *         - email
+ *         - password
+ *         - notariaId
+ *         - rol
+ *       properties:
+ *         nombres:
+ *           type: string
+ *         apellidos:
+ *           type: string
+ *         cedula:
+ *           type: string
+ *         email:
+ *           type: string
+ *           format: email
+ *         password:
+ *           type: string
+ *           format: password
+ *         notariaId:
+ *           type: string
+ *           format: uuid
+ *         rol:
+ *           type: string
+ *           enum: [ADMIN_SISTEMA, NOTARIO, OFICIAL_CUMPLIMIENTO, MATRIZADOR]
+ *     AuthResponse:
+ *       type: object
+ *       properties:
+ *         token:
+ *           type: string
+ *         user:
+ *           $ref: '#/components/schemas/User'
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         email:
+ *           type: string
+ *         nombres:
+ *           type: string
+ *         apellidos:
+ *           type: string
+ *         rol:
+ *           type: string
  */
 export class AuthController {
     /**
-     * Login
-     * POST /api/auth/login
+     * @swagger
+     * /auth/login:
+     *   post:
+     *     summary: Authenticate user
+     *     tags: [Auth]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/LoginRequest'
+     *     responses:
+     *       200:
+     *         description: Login successful
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/AuthResponse'
+     *       401:
+     *         description: Invalid credentials
      */
     async login(req: Request, res: Response) {
         try {
@@ -52,7 +140,7 @@ export class AuthController {
 
             logger.info('User logged in', { userId: user.id, email: user.email });
 
-            res.json({
+            return res.json({
                 token,
                 user: {
                     id: user.id,
@@ -68,7 +156,7 @@ export class AuthController {
             });
         } catch (error: any) {
             logger.error('Login error', { error });
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Error en el inicio de sesión',
                 details: error.message,
             });
@@ -76,8 +164,26 @@ export class AuthController {
     }
 
     /**
-     * Register new user
-     * POST /api/auth/register
+     * @swagger
+     * /auth/register:
+     *   post:
+     *     summary: Register a new user
+     *     tags: [Auth]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/RegisterRequest'
+     *     responses:
+     *       201:
+     *         description: User created
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/AuthResponse'
+     *       400:
+     *         description: User already exists or invalid data
      */
     async register(req: Request, res: Response) {
         try {
@@ -114,7 +220,7 @@ export class AuthController {
             // Generate token
             const token = generateToken(user.id);
 
-            res.status(201).json({
+            return res.status(201).json({
                 token,
                 user: {
                     id: user.id,
@@ -130,7 +236,7 @@ export class AuthController {
             });
         } catch (error: any) {
             logger.error('Registration error', { error });
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Error en el registro',
                 details: error.message,
             });
@@ -138,8 +244,22 @@ export class AuthController {
     }
 
     /**
-     * Get current user profile
-     * GET /api/auth/me
+     * @swagger
+     * /auth/me:
+     *   get:
+     *     summary: Get current user profile
+     *     tags: [Auth]
+     *     security:
+     *       - bearerAuth: []
+     *     responses:
+     *       200:
+     *         description: Current user profile
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/User'
+     *       401:
+     *         description: Not authenticated
      */
     async me(req: Request, res: Response) {
         try {
@@ -171,10 +291,10 @@ export class AuthController {
                 },
             });
 
-            res.json(user);
+            return res.json(user);
         } catch (error: any) {
             logger.error('Get profile error', { error });
-            res.status(500).json({
+            return res.status(500).json({
                 error: 'Error al obtener perfil',
                 details: error.message,
             });

@@ -28,6 +28,13 @@ router.get(
     (req, res) => operacionController.getAll(req, res)
 );
 
+// Estadísticas del Dashboard
+router.get(
+    '/stats',
+    authenticate,
+    (req, res) => operacionController.getStats(req, res)
+);
+
 // GET /api/operaciones/:id
 router.get(
     '/:id',
@@ -51,6 +58,22 @@ router.post(
     authenticate,
     auditLog('Operacion', TipoAccion.LEER),
     (req, res) => operacionController.calcularRiesgoPreliminar(req, res)
+);
+
+// GET /api/operaciones/:id/pdf
+router.get(
+    '/:id/pdf',
+    authenticate,
+    auditLog('Operacion', TipoAccion.LEER),
+    (req, res) => operacionController.descargarReporte(req, res)
+);
+
+// GET /api/operaciones/:id/kyc-pdf
+router.get(
+    '/:id/kyc-pdf',
+    authenticate,
+    auditLog('Operacion', TipoAccion.LEER),
+    (req, res) => operacionController.descargarKYC(req, res)
 );
 
 export default router;

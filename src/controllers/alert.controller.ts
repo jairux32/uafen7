@@ -24,10 +24,10 @@ export class AlertController {
                 (notariaId as string) || req.user.notariaId
             );
 
-            res.json(alertas);
+            return res.json(alertas);
         } catch (error: any) {
             logger.error('Get pending alerts error', { error });
-            res.status(500).json({
+            return res.status(500).json({
                 error: 'Error al obtener alertas pendientes',
                 details: error.message,
             });
@@ -48,7 +48,7 @@ export class AlertController {
             }
 
             await alertManagementService.gestionarAlerta(
-                id,
+                id as string,
                 req.user.id,
                 decision as EstadoAlerta,
                 comentario
@@ -60,14 +60,14 @@ export class AlertController {
                 usuarioId: req.user.id,
             });
 
-            res.json({
+            return res.json({
                 message: 'Alerta gestionada exitosamente',
                 alertaId: id,
                 decision,
             });
         } catch (error: any) {
             logger.error('Manage alert error', { error });
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Error al gestionar alerta',
                 details: error.message,
             });

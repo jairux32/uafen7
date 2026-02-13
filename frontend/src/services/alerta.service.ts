@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import type { Alerta, PaginatedResponse } from '../types';
+import type { Alerta } from '../types';
 
 export const alertaService = {
     async getPendientes(): Promise<Alerta[]> {

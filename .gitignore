@@ -16,3 +16,13 @@ coverage/
 .idea/
 *.iml
 .prisma/
+
+# Uploads and temporary files
+uploads/
+storage/
+*.pdf
+*.docx
+*.xlsx
+*.csv
+!templates/*.xlsx
+!templates/*.csv

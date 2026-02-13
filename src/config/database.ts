@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
 import config from '../config';
 
+
 // Prisma Client Singleton
 const prismaClientSingleton = () => {
     return new PrismaClient({

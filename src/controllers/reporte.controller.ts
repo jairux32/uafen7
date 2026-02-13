@@ -28,10 +28,10 @@ export class ReporteController {
                 usuarioId: req.user.id,
             });
 
-            res.status(201).json(reporte);
+            return res.status(201).json(reporte);
         } catch (error: any) {
             logger.error('Generate RESU error', { error });
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Error al generar RESU',
                 details: error.message,
             });
@@ -58,13 +58,13 @@ export class ReporteController {
                 usuarioId: req.user.id,
             });
 
-            res.status(201).json({
+            return res.status(201).json({
                 message: 'Reporte ROS generado (CONFIDENCIAL)',
                 reporteId: reporte.id,
             });
         } catch (error: any) {
             logger.error('Generate ROS error', { error });
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Error al generar ROS',
                 details: error.message,
             });
@@ -77,7 +77,7 @@ export class ReporteController {
      */
     async enviar(req: Request, res: Response) {
         try {
-            const { id } = req.params;
+            const id = req.params.id as string;
 
             if (!req.user) {
                 return res.status(401).json({ error: 'No autenticado' });
@@ -91,13 +91,13 @@ export class ReporteController {
                 usuarioId: req.user.id,
             });
 
-            res.json({
+            return res.json({
                 message: 'Reporte enviado a UAFE exitosamente',
                 confirmacion,
             });
         } catch (error: any) {
             logger.error('Send report error', { error });
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Error al enviar reporte',
                 details: error.message,
             });

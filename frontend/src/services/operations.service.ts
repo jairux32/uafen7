@@ -1,17 +1,5 @@
 import { apiClient } from './api';
-import type { Operacion, DebiDaDiligencia } from '../types';
-
-export interface CreateOperacionRequest {
-    numeroEscritura: string;
-    fechaEscritura: string;
-    tipoActo: string;
-    descripcionBien: string;
-    valorDeclarado: number;
-    formaPago: string;
-    montoEfectivo?: number;
-    vendedorId: string;
-    compradorId: string;
-}
+import type { Operacion, CreateOperacionRequest } from '../types';
 
 export const operationsService = {
     async getOperaciones(params?: {
@@ -43,6 +31,20 @@ export const operationsService = {
 
     async deleteOperacion(id: string) {
         const response = await apiClient.delete(`/operaciones/${id}`);
+        return response.data;
+    },
+
+    async getOperacionPdf(id: string): Promise<Blob> {
+        const response = await apiClient.get(`/operaciones/${id}/pdf`, {
+            responseType: 'blob',
+        });
+        return response.data;
+    },
+
+    async getOperacionKycPdf(id: string): Promise<Blob> {
+        const response = await apiClient.get(`/operaciones/${id}/kyc-pdf`, {
+            responseType: 'blob',
+        });
         return response.data;
     },
 };

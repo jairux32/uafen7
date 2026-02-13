@@ -9,6 +9,7 @@ import DashboardPage from './pages/dashboard/DashboardPage';
 import OperacionesPage from './pages/operaciones/OperacionesPage';
 import NuevaOperacionPage from './pages/operaciones/NuevaOperacionPage';
 import OperacionCreatedPage from './pages/operaciones/OperacionCreatedPage';
+import OperacionDetailPage from './pages/operaciones/OperacionDetailPage';
 import AlertasPage from './pages/alertas/AlertasPage';
 import ReportesPage from './pages/reportes/ReportesPage';
 import ConfiguracionPage from './pages/configuracion/ConfiguracionPage';
@@ -46,6 +47,7 @@ function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="operaciones" element={<OperacionesPage />} />
             <Route path="operaciones/nueva" element={<NuevaOperacionPage />} />
+            <Route path="operaciones/:id" element={<OperacionDetailPage />} />
             <Route path="operaciones/success" element={<OperacionCreatedPage />} />
             <Route path="alertas" element={<AlertasPage />} />
             <Route path="reportes" element={<ReportesPage />} />

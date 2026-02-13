@@ -1,7 +1,12 @@
 import { apiClient } from './api';
-import type { Operacion, PaginatedResponse } from '../types';
+import type { Operacion, PaginatedResponse, DashboardStats } from '../types';
 
 export const operacionService = {
+    async getStats(): Promise<DashboardStats> {
+        const { data } = await apiClient.get<DashboardStats>('/operaciones/stats');
+        return data;
+    },
+
     async getAll(params?: {
         page?: number;
         limit?: number;

@@ -1,28 +1,9 @@
 import { apiClient } from './api';
-
-export interface DebidaDiligenciaData {
-    tipoPersona: 'NATURAL' | 'JURIDICA';
-    identificacion: string;
-    nombres?: string;
-    apellidos?: string;
-    razonSocial?: string;
-    nacionalidad?: string;
-    paisConstitucion?: string;
-    ingresosMensuales?: number;
-    origenFondos?: string;
-    esPEP: boolean;
-    actividadEconomica?: string;
-}
-
-export interface DebidaDiligencia extends DebidaDiligenciaData {
-    id: string;
-    createdAt: string;
-    updatedAt: string;
-}
+import type { DebiDaDiligencia } from '../types';
 
 export interface BuscarPersonaResponse {
     encontrado: boolean;
-    persona?: DebidaDiligencia;
+    persona?: DebiDaDiligencia;
 }
 
 /**
@@ -41,7 +22,7 @@ class DebidaDiligenciaService {
     /**
      * Create new person record
      */
-    async crear(data: DebidaDiligenciaData): Promise<DebidaDiligencia> {
+    async crear(data: Omit<DebiDaDiligencia, 'id' | 'createdAt' | 'updatedAt'>): Promise<DebiDaDiligencia> {
         const response = await apiClient.post('/debida-diligencia', data);
         return response.data;
     }
@@ -49,7 +30,7 @@ class DebidaDiligenciaService {
     /**
      * Update existing person record
      */
-    async actualizar(id: string, data: Partial<DebidaDiligenciaData>): Promise<DebidaDiligencia> {
+    async actualizar(id: string, data: Partial<DebiDaDiligencia>): Promise<DebiDaDiligencia> {
         const response = await apiClient.patch(`/debida-diligencia/${id}`, data);
         return response.data;
     }
@@ -57,7 +38,7 @@ class DebidaDiligenciaService {
     /**
      * Get person by ID
      */
-    async obtenerPorId(id: string): Promise<DebidaDiligencia> {
+    async obtenerPorId(id: string): Promise<DebiDaDiligencia> {
         const response = await apiClient.get(`/debida-diligencia/${id}`);
         return response.data;
     }

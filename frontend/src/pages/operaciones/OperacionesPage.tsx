@@ -23,6 +23,11 @@ export default function OperacionesPage() {
         queryFn: () => operacionService.getAll(filters),
     });
 
+    const { data: stats } = useQuery({
+        queryKey: ['operaciones-stats'],
+        queryFn: operacionService.getStats,
+    });
+
     if (error) {
         return (
             <div className="space-y-6">
@@ -34,33 +39,36 @@ export default function OperacionesPage() {
         );
     }
 
-    // Mock summary data - in real app, get from API
+    // Calcular totales de riesgo alto
+    const riesgoAltoTotal = (stats?.riesgoDistribucion.find(r => r.nivel === 'ALTO')?.cantidad || 0) +
+        (stats?.riesgoDistribucion.find(r => r.nivel === 'MUY_ALTO')?.cantidad || 0);
+
     const summaryCards = [
         {
-            title: 'Alertas Totales',
-            value: '12',
-            subtitle: '+3 desde ayer',
+            title: 'Alertas Pendientes',
+            value: stats?.alertasPendientes || 0,
+            subtitle: 'Requiere atención',
             icon: AlertTriangle,
             color: 'red',
         },
         {
             title: 'En Revisión',
-            value: '08',
-            subtitle: '4 pendientes hoy',
+            value: stats?.porEstado.revision || 0,
+            subtitle: 'Pendientes de aprobación',
             icon: Clock,
             color: 'blue',
         },
         {
-            title: 'Riesgo Alto',
-            value: '05',
-            subtitle: 'Requiere atención',
+            title: 'Riesgo Alto/Muy Alto',
+            value: riesgoAltoTotal,
+            subtitle: 'Monitoreo prioritario',
             icon: AlertTriangle,
             color: 'orange',
         },
         {
-            title: 'Completadas',
-            value: '24',
-            subtitle: '+12 esta semana',
+            title: 'Aprobadas',
+            value: stats?.porEstado.aprobadas || 0,
+            subtitle: 'Operaciones finalizadas',
             icon: CheckCircle,
             color: 'green',
         },

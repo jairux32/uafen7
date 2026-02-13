@@ -34,9 +34,18 @@ export const logAuditEvent = async (data: AuditLogData): Promise<void> => {
             timestamp: new Date().toISOString(),
         });
 
-        // TODO: Store in dedicated audit_logs table
-        // For now, just log to Winston
-        // In production, you might want a separate audit_logs table
+        // Store in dedicated audit_logs table
+        await prisma.auditLog.create({
+            data: {
+                usuarioId: data.usuarioId !== 'anonymous' ? data.usuarioId : null,
+                accion: data.accion,
+                entidad: data.entidad,
+                entidadId: data.entidadId,
+                detalles: data.detalles as any,
+                ip: data.ipAddress,
+                userAgent: data.userAgent,
+            },
+        });
     } catch (error) {
         logger.error('Failed to log audit event', { error, data });
     }

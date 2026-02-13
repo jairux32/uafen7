@@ -4,6 +4,7 @@ import { createOperacionSchema } from '../models/schemas';
 import { riskAssessmentService } from '../services/riskAssessment.service';
 import { alertManagementService } from '../services/alertManagement.service';
 import logger from '../config/logger';
+import { pdfService } from '../services/pdf.service';
 import { EstadoOperacion } from '@prisma/client';
 
 /**
@@ -57,6 +58,7 @@ export class OperacionController {
             const scoreRiesgo = await riskAssessmentService.calcularScoreRiesgo(operacionInput);
             const nivelRiesgo = riskAssessmentService.determinarNivelRiesgo(scoreRiesgo);
             const factoresRiesgo = await riskAssessmentService.identificarFactoresRiesgo(operacionInput);
+            const tipoDD = await riskAssessmentService.evaluarTipoDD(operacionInput);
 
             // Create operation
             const operacion = await prisma.operacion.create({
@@ -66,7 +68,10 @@ export class OperacionController {
                     creadorId: req.user.id,
                     estado: EstadoOperacion.BORRADOR,
                     nivelRiesgo,
-                    factoresRiesgo,
+                    scoreRiesgo,
+                    tipoDD,
+                    factoresRiesgo: factoresRiesgo as any,
+                    notariaId: req.user.notariaId,
                 },
                 include: {
                     vendedor: true,
@@ -87,7 +92,7 @@ export class OperacionController {
                 scoreRiesgo,
             });
 
-            res.status(201).json({
+            return res.status(201).json({
                 operacion,
                 riesgo: {
                     nivel: nivelRiesgo,
@@ -97,7 +102,7 @@ export class OperacionController {
             });
         } catch (error: any) {
             logger.error('Create operation error', { error });
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Error al crear operación',
                 details: error.message,
             });
@@ -164,7 +169,7 @@ export class OperacionController {
                 prisma.operacion.count({ where }),
             ]);
 
-            res.json({
+            return res.json({
                 data: operaciones,
                 total,
                 page: pageNum,
@@ -173,7 +178,7 @@ export class OperacionController {
             });
         } catch (error: any) {
             logger.error('Get operations error', { error });
-            res.status(500).json({
+            return res.status(500).json({
                 error: 'Error al obtener operaciones',
                 details: error.message,
             });
@@ -186,7 +191,7 @@ export class OperacionController {
      */
     async getById(req: Request, res: Response) {
         try {
-            const { id } = req.params;
+            const id = req.params.id as string;
 
             const operacion = await prisma.operacion.findUnique({
                 where: { id },
@@ -220,10 +225,10 @@ export class OperacionController {
                 return res.status(404).json({ error: 'Operación no encontrada' });
             }
 
-            res.json(operacion);
+            return res.json(operacion);
         } catch (error: any) {
             logger.error('Get operation error', { error });
-            res.status(500).json({
+            return res.status(500).json({
                 error: 'Error al obtener operación',
                 details: error.message,
             });
@@ -236,7 +241,7 @@ export class OperacionController {
      */
     async updateEstado(req: Request, res: Response) {
         try {
-            const { id } = req.params;
+            const id = req.params.id as string;
             const { estado } = req.body;
 
             if (!req.user) {
@@ -259,10 +264,10 @@ export class OperacionController {
                 usuarioId: req.user.id,
             });
 
-            res.json(operacion);
+            return res.json(operacion);
         } catch (error: any) {
             logger.error('Update operation status error', { error });
-            res.status(400).json({
+            return res.status(400).json({
                 error: 'Error al actualizar estado',
                 details: error.message,
             });
@@ -317,9 +322,176 @@ export class OperacionController {
                 tipoDD,
             });
         } catch (error: any) {
-            logger.error('Calculate risk error', { error });
             return res.status(500).json({
                 error: 'Error al calcular riesgo',
+            });
+        }
+    }
+
+    /**
+     * Download operation report as PDF
+     * GET /api/operaciones/:id/pdf
+     */
+    async descargarReporte(req: Request, res: Response) {
+        try {
+            const id = req.params.id as string;
+
+            const operacion = await prisma.operacion.findUnique({
+                where: { id },
+                include: {
+                    vendedor: true,
+                    comprador: true,
+                    notaria: true,
+                },
+            });
+
+            if (!operacion) {
+                return res.status(404).json({ error: 'Operación no encontrada' });
+            }
+
+            const pdfBuffer = await pdfService.generateOperacionReport(operacion);
+
+            logger.info('PDF generated for report', { operacionId: id, size: pdfBuffer.length });
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=Reporte-${id}.pdf`);
+            res.setHeader('Content-Length', pdfBuffer.length);
+            return res.end(pdfBuffer);
+        } catch (error: any) {
+            logger.error('Error generating PDF:', error);
+            return res.status(500).json({
+                error: 'Error al generar reporte PDF',
+                details: error.message,
+            });
+        }
+    }
+    /**
+     * Get operation statistics for dashboard
+     */
+    async getStats(_req: Request, res: Response) {
+        try {
+            // 1. Total counts
+            const [total, borradores, revision, aprobadas, archivadas] = await Promise.all([
+                prisma.operacion.count(),
+                prisma.operacion.count({ where: { estado: 'BORRADOR' } }),
+                prisma.operacion.count({ where: { estado: 'EN_REVISION' } }),
+                prisma.operacion.count({ where: { estado: 'APROBADA' } }),
+                prisma.operacion.count({ where: { estado: 'ARCHIVADA' } }),
+            ]);
+
+            // 2. Risk distribution
+            const riesgoDistribucion = await prisma.operacion.groupBy({
+                by: ['nivelRiesgo'],
+                _count: {
+                    nivelRiesgo: true,
+                },
+            });
+
+            // 3. Operations by month (last 6 months)
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+            const operacionesRecientes = await prisma.operacion.findMany({
+                where: {
+                    createdAt: {
+                        gte: sixMonthsAgo
+                    }
+                },
+                select: {
+                    createdAt: true
+                },
+                orderBy: {
+                    createdAt: 'asc'
+                }
+            });
+
+            // Process monthly data 
+            const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+            interface MonthlyStat {
+                mes: string;
+                operaciones: number;
+            }
+
+            const operacionesPorMes = operacionesRecientes.reduce<MonthlyStat[]>((acc, curr) => {
+                const date = new Date(curr.createdAt);
+                const mesKey = `${meses[date.getMonth()]}`;
+                const existing = acc.find(m => m.mes === mesKey);
+                if (existing) {
+                    existing.operaciones++;
+                } else {
+                    acc.push({ mes: mesKey, operaciones: 1 });
+                }
+                return acc;
+            }, []);
+
+            // 4. Pending Alerts (High risk not approved)
+            const alertasPendientes = await prisma.operacion.count({
+                where: {
+                    nivelRiesgo: { in: ['ALTO', 'MUY_ALTO'] },
+                    estado: { not: 'APROBADA' }
+                }
+            });
+
+            return res.json({
+                total,
+                porEstado: {
+                    borradores,
+                    revision,
+                    aprobadas,
+                    archivadas
+                },
+                riesgoDistribucion: riesgoDistribucion.map(r => ({
+                    nivel: r.nivelRiesgo,
+                    cantidad: r._count.nivelRiesgo
+                })),
+                operacionesPorMes,
+                alertasPendientes
+            });
+
+        } catch (error: any) {
+            logger.error('Error getting stats:', error);
+            return res.status(500).json({
+                error: 'Error al obtener estadísticas',
+                details: error.message,
+            });
+        }
+    }
+
+    /**
+     * Download KYC form as PDF
+     * GET /api/operaciones/:id/kyc-pdf
+     */
+    async descargarKYC(req: Request, res: Response) {
+        try {
+            const id = req.params.id as string;
+
+            const operacion = await prisma.operacion.findUnique({
+                where: { id },
+                include: {
+                    vendedor: true,
+                    comprador: true,
+                    notaria: true,
+                },
+            });
+
+            if (!operacion) {
+                return res.status(404).json({ error: 'Operación no encontrada' });
+            }
+
+            const pdfBuffer = await pdfService.generateKYCForm(operacion);
+
+            logger.info('PDF generated for KYC', { operacionId: id, size: pdfBuffer.length });
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=KYC-${id}.pdf`);
+            res.setHeader('Content-Length', pdfBuffer.length);
+            return res.end(pdfBuffer);
+        } catch (error: any) {
+            logger.error('Error generating KYC PDF:', error);
+            return res.status(500).json({
+                error: 'Error al generar formulario KYC',
+                details: error.message,
             });
         }
     }

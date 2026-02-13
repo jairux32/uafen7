@@ -1,5 +1,4 @@
 import { TipoDD, NivelRiesgo, TipoActo, TipoPersona } from '@prisma/client';
-import { prisma } from '../config/database';
 
 interface OperacionInput {
     tipoActo: TipoActo;

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { z } from 'zod';
-import { TipoPersona } from '@prisma/client';
+import { TipoPersona, EstadoCivil } from '@prisma/client';
 import logger from '../config/logger';
 
 /**
@@ -15,10 +15,13 @@ const createDDSchema = z.object({
     razonSocial: z.string().optional(),
     nacionalidad: z.string().optional(),
     paisConstitucion: z.string().optional(),
-    ingresosMensuales: z.number().positive().optional(),
+    ingresosMensuales: z.number().nonnegative().optional(), // Changed from positive()
     origenFondos: z.string().optional(),
     esPEP: z.boolean(),
     actividadEconomica: z.string().optional(),
+    estadoCivil: z.nativeEnum(EstadoCivil).optional(),
+    nombreConyuge: z.string().optional(),
+    identificacionConyuge: z.string().optional(),
 });
 
 /**
@@ -32,7 +35,7 @@ export class DebidaDiligenciaController {
      */
     async buscarPorIdentificacion(req: Request, res: Response) {
         try {
-            const { identificacion } = req.params;
+            const identificacion = req.params.identificacion as string;
 
             if (!identificacion || identificacion.length < 10) {
                 return res.status(400).json({
@@ -81,6 +84,7 @@ export class DebidaDiligenciaController {
      */
     async crear(req: Request, res: Response) {
         try {
+            // Log sanitized for security
             const data = createDDSchema.parse(req.body);
 
             // Check if person already exists
@@ -109,6 +113,13 @@ export class DebidaDiligenciaController {
                     origenFondos: data.origenFondos,
                     esPEP: data.esPEP,
                     actividadEconomica: data.actividadEconomica,
+                    estadoCivil: data.estadoCivil,
+                    nombreConyuge: data.nombreConyuge,
+                    identificacionConyuge: data.identificacionConyuge,
+                    // Default values for required fields
+                    tipo: 'SIMPLIFICADA', // Default to Simplificada
+                    fechaExpiracion: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // Default 1 year validity
+
                 },
             });
 
@@ -116,7 +127,9 @@ export class DebidaDiligenciaController {
 
             return res.status(201).json(persona);
         } catch (error) {
+            console.error('Error en crear persona:', error);
             if (error instanceof z.ZodError) {
+                console.error('Detalles de validación:', JSON.stringify(error.errors, null, 2));
                 return res.status(400).json({
                     error: 'Datos inválidos',
                     detalles: error.errors,
@@ -136,7 +149,7 @@ export class DebidaDiligenciaController {
      */
     async actualizar(req: Request, res: Response) {
         try {
-            const { id } = req.params;
+            const id = req.params.id as string;
             const data = createDDSchema.partial().parse(req.body);
 
             const persona = await prisma.debiDaDiligencia.update({
@@ -168,7 +181,7 @@ export class DebidaDiligenciaController {
      */
     async obtenerPorId(req: Request, res: Response) {
         try {
-            const { id } = req.params;
+            const id = req.params.id as string;
 
             const persona = await prisma.debiDaDiligencia.findUnique({
                 where: { id },
