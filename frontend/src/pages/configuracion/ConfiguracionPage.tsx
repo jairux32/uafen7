@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
     Building2,
@@ -7,15 +7,20 @@ import {
     Zap,
     Calendar,
     Mail,
-    Smartphone,
     CheckCircle2,
     Eye,
     RefreshCcw,
-    FileText,
     Shield,
     History,
-    Users
+    Users,
+    UserPlus,
+    MoreVertical,
+    CheckCircle,
+    XCircle,
+    Clock
 } from 'lucide-react';
+import { usuarioService } from '../../services/usuario.service';
+import type { Usuario } from '../../services/usuario.service';
 
 type TabType = 'notaria' | 'usuarios' | 'seguridad' | 'auditoria';
 
@@ -23,6 +28,10 @@ export default function ConfiguracionPage() {
     const [activeTab, setActiveTab] = useState<TabType>('notaria');
     const [isSaving, setIsSaving] = useState(false);
     const [isTestingUafe, setIsTestingUafe] = useState(false);
+
+    // Users state
+    const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
     // Form states (simplified for UI demonstration)
     const [notariaInfo, setNotariaInfo] = useState({
@@ -50,6 +59,34 @@ export default function ConfiguracionPage() {
         sisla: '09-02-123456',
         apiKey: '••••••••••••••••••••••••'
     });
+
+    useEffect(() => {
+        if (activeTab === 'usuarios') {
+            loadUsuarios();
+        }
+    }, [activeTab]);
+
+    const loadUsuarios = async () => {
+        setIsLoadingUsers(true);
+        try {
+            const data = await usuarioService.listar();
+            setUsuarios(data);
+        } catch (error) {
+            toast.error('Error al cargar usuarios');
+        } finally {
+            setIsLoadingUsers(false);
+        }
+    };
+
+    const handleToggleStatus = async (user: Usuario) => {
+        try {
+            await usuarioService.cambiarEstado(user.id, !user.activo);
+            toast.success(`Usuario ${!user.activo ? 'activado' : 'desactivado'} correctamente`);
+            loadUsuarios();
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Error al cambiar estado');
+        }
+    };
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -93,7 +130,7 @@ export default function ConfiguracionPage() {
                 </nav>
             </div>
 
-            {activeTab === 'notaria' ? (
+            {activeTab === 'notaria' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* 1. Información General */}
@@ -340,12 +377,108 @@ export default function ConfiguracionPage() {
                         </div>
                     </div>
                 </div>
-            ) : (
+            )}
+
+            {activeTab === 'usuarios' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                <Users className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900">Gestión de Usuarios</h3>
+                                <p className="text-xs text-gray-500">Control de acceso y roles para el personal de la notaría</p>
+                            </div>
+                        </div>
+                        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-sm">
+                            <UserPlus className="w-4 h-4" />
+                            Nuevo Usuario
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50/50 text-[10px] uppercase tracking-wider text-gray-500 font-bold border-b border-gray-100">
+                                    <th className="px-6 py-4">Usuario</th>
+                                    <th className="px-6 py-4">Rol</th>
+                                    <th className="px-6 py-4">Estado</th>
+                                    <th className="px-6 py-4">Último Acceso</th>
+                                    <th className="px-12 py-4 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {isLoadingUsers ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                                            <RefreshCcw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                                            Cargando usuarios...
+                                        </td>
+                                    </tr>
+                                ) : usuarios.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                                            No hay usuarios registrados.
+                                        </td>
+                                    </tr>
+                                ) : usuarios.map((user) => (
+                                    <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                                                    {user.nombres[0]}{user.apellidos[0]}
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-semibold text-gray-900 leading-none mb-1">
+                                                        {user.nombres} {user.apellidos}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">{user.email}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-600 border border-gray-200/50">
+                                                {user.rol.replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <button
+                                                onClick={() => handleToggleStatus(user)}
+                                                className={`
+                                                    inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all
+                                                    ${user.activo
+                                                        ? 'bg-green-50 text-green-700 border border-green-100 hover:bg-green-100'
+                                                        : 'bg-red-50 text-red-700 border border-red-100 hover:bg-red-100'
+                                                    }
+                                                `}
+                                            >
+                                                {user.activo ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                                {user.activo ? 'Activo' : 'Inactivo'}
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs text-gray-500 flex items-center gap-2 mt-1">
+                                            <Clock className="w-3 h-3" />
+                                            {user.ultimoAcceso ? new Date(user.ultimoAcceso).toLocaleString() : 'Nunca'}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                                                <MoreVertical className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {(activeTab === 'seguridad' || activeTab === 'auditoria') && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center animate-in fade-in duration-300">
                     <div className="inline-flex p-4 bg-gray-50 rounded-full mb-4">
-                        {activeTab === 'usuarios' ? <Users className="w-8 h-8 text-gray-400" /> :
-                            activeTab === 'seguridad' ? <Shield className="w-8 h-8 text-gray-400" /> :
-                                <History className="w-8 h-8 text-gray-400" />}
+                        {activeTab === 'seguridad' ? <Shield className="w-8 h-8 text-gray-400" /> :
+                            <History className="w-8 h-8 text-gray-400" />}
                     </div>
                     <h3 className="text-xl font-bold text-gray-900 mb-2">Módulo de {activeTab}</h3>
                     <p className="text-gray-500 max-w-sm mx-auto mb-8">

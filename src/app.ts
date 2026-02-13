@@ -16,6 +16,7 @@ import reporteRoutes from './routes/reporte.routes';
 import debidaDiligenciaRoutes from './routes/debidaDiligencia.routes';
 import listasRestrictivasRoutes from './routes/listasRestrictivas.routes';
 import documentoRoutes from './routes/documento.routes';
+import usuarioRoutes from './routes/usuario.routes';
 import adminRoutes from './routes/admin.routes';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
@@ -90,6 +91,7 @@ app.use('/api/reportes', reporteRoutes);
 app.use('/api/debida-diligencia', debidaDiligenciaRoutes);
 app.use('/api/verificar-listas', listasRestrictivasRoutes);
 app.use('/api/documentos', documentoRoutes);
+app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/admin', adminRoutes);
 
 // ============================================================================

@@ -56,3 +56,4 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient().axios;
+export default apiClient;
